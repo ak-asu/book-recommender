@@ -1,58 +1,70 @@
 export type SiteConfig = typeof siteConfig;
 
 export const siteConfig = {
-  name: "Next.js + HeroUI",
-  description: "Make beautiful websites regardless of your design experience.",
+  name: "Book Recommender",
+  description: "A book recommendation AI application",
   navItems: [
     {
       label: "Home",
       href: "/",
     },
     {
-      label: "Docs",
-      href: "/docs",
+      label: "Account",
+      href: "/account",
     },
     {
-      label: "Pricing",
-      href: "/pricing",
+      label: "Login",
+      href: "/login",
     },
     {
-      label: "Blog",
-      href: "/blog",
+      label: "Logout",
+      href: "/logout",
     },
     {
-      label: "About",
-      href: "/about",
+      label: "Register",
+      href: "/register",
+    },
+    {
+      label: "History",
+      href: "/history",
+    },
+    {
+      label: "Books",
+      href: "/books",
+    },
+    {
+      label: "Favourites",
+      href: "/favourites",
     },
   ],
   navMenuItems: [
     {
-      label: "Profile",
-      href: "/profile",
+      label: "Home",
+      href: "/",
     },
     {
-      label: "Dashboard",
-      href: "/dashboard",
+      label: "Account",
+      href: "/account",
     },
     {
-      label: "Projects",
-      href: "/projects",
+      label: "Login",
+      href: "/login",
     },
     {
-      label: "Team",
-      href: "/team",
+      label: "Register",
+      href: "/register",
     },
     {
-      label: "Calendar",
-      href: "/calendar",
+      label: "History",
+      href: "/history",
     },
     {
-      label: "Settings",
-      href: "/settings",
+      label: "Books",
+      href: "/books",
     },
     {
-      label: "Help & Feedback",
-      href: "/help-feedback",
+      label: "Favourites",
+      href: "/favourites",
     },
     {
       label: "Logout",
