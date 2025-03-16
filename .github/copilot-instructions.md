@@ -36,7 +36,6 @@ Build a fully functional, deployable, and scalable book recommendation web appli
 4. **User Management & Personalization:**  
    - **Login/Logout Page:** Implement user authentication via Firebase Auth (email/password, social providers if possible).
    - **Account Page:** Allow registered users to view and edit their profiles, saved preferences, and manage bookmarks.
-   - **History Page:** Display past search queries, generated recommendations, and interaction logs.
    - **Favorites/Bookmarks Page:** A tabbed interface showing favorites, bookmarked items, and items “saved for later.”
    - The system must record user interactions and feedback (like/dislike, regenerate) to build and update user preference probabilities (e.g., probability of liking horror, shorter books) for personalized recommendations.
    - **Guest Users:** Allow full browsing and session-based history navigation without saving preferences or data persistently.
@@ -58,7 +57,7 @@ Build a fully functional, deployable, and scalable book recommendation web appli
    - User feedback (like/dislike, regenerate) is recorded to refine recommendation algorithms and update user preference probabilities for registered users.
 
 7. **UI/UX & Components:**  
-   - Use NextUI (or HeroUI) with NextJS and React to build a responsive, modern interface.
+   - Use HeroUI with NextJS and React to build a responsive, modern interface.
    - Create modular, reusable components for:
      - Search bar with dropdown.
      - Navigation arrows and control buttons (delete, export, share).
