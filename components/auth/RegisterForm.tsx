@@ -97,7 +97,6 @@ const RegisterForm: React.FC<RegisterFormProps> = ({
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <Input
-        autoFocus
         isRequired
         label="Full Name"
         placeholder="Enter your name"

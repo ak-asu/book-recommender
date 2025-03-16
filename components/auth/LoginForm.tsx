@@ -64,7 +64,6 @@ const LoginForm: React.FC<LoginFormProps> = ({
   return (
     <form className="space-y-4" onSubmit={handleSubmit}>
       <Input
-        autoFocus
         isRequired
         autoComplete="email"
         label="Email"
@@ -114,7 +113,7 @@ const LoginForm: React.FC<LoginFormProps> = ({
 
         <div className="text-center mt-2">
           <span className="text-default-500 text-small">
-            Don't have an account?{" "}
+            Don&apos;t have an account?{" "}
             <NextUILink
               className="text-primary cursor-pointer text-small"
               underline="hover"

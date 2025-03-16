@@ -157,8 +157,23 @@ export const isFavorited = async (userId: string, bookId: string) => {
   }
 };
 
+interface Book {
+  id: string;
+  image: string;
+  title: string;
+  author: string;
+  publicationDate?: string;
+  rating: number;
+  reviewCount?: number;
+  description: string;
+  genres?: string[];
+}
+
 // Get user's bookmarked books with details
-export const getUserBookmarks = async (userId: string, maxResults = 50) => {
+export const getUserBookmarks = async (
+  userId: string,
+  maxResults = 50,
+): Promise<Book[]> => {
   try {
     const q = query(
       collection(firestore, "userBookmarks"),
@@ -184,15 +199,30 @@ export const getUserBookmarks = async (userId: string, maxResults = 50) => {
     );
 
     // Filter out any null values (books that don't exist)
-    return bookDetails.filter((book) => book !== null);
+    return bookDetails.filter((book): book is Book => book !== null);
   } catch (error) {
     console.error("Error fetching user bookmarks:", error);
     throw error;
   }
 };
 
+interface Book {
+  id: string;
+  image: string;
+  title: string;
+  author: string;
+  publicationDate?: string;
+  rating: number;
+  reviewCount?: number;
+  description: string;
+  genres?: string[];
+}
+
 // Get user's favorite books with details
-export const getUserFavorites = async (userId: string, maxResults = 50) => {
+export const getUserFavorites = async (
+  userId: string,
+  maxResults = 50,
+): Promise<Book[]> => {
   try {
     const q = query(
       collection(firestore, "userFavorites"),
@@ -210,7 +240,11 @@ export const getUserFavorites = async (userId: string, maxResults = 50) => {
         const bookDoc = await getDoc(doc(firestore, "books", bookId));
 
         if (bookDoc.exists()) {
-          return { id: bookDoc.id, ...bookDoc.data() };
+          const data = bookDoc.data() as Book;
+
+          const { id: dataId, ...rest } = data;
+
+          return { id: bookDoc.id, ...rest };
         }
 
         return null;
@@ -218,7 +252,7 @@ export const getUserFavorites = async (userId: string, maxResults = 50) => {
     );
 
     // Filter out any null values
-    return bookDetails.filter((book) => book !== null);
+    return bookDetails.filter((book): book is Book => book !== null);
   } catch (error) {
     console.error("Error fetching user favorites:", error);
     throw error;

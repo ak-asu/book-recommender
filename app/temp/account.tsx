@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/router";
 import {
-  Container,
   Card,
   CardHeader,
   CardBody,
@@ -21,6 +20,7 @@ import {
 } from "../../services/userService";
 import BookList from "../../components/book/BookList";
 import { getUserBookmarks, getUserFavorites } from "../../services/userService";
+import Container from "../../components/ui/Container";
 
 const AccountPage = () => {
   const { user, isAuthenticated, isLoading, updateUserProfile, signOut } =
@@ -394,7 +394,7 @@ const AccountPage = () => {
               <Card>
                 <CardBody className="py-8 text-center">
                   <p className="text-default-500">
-                    You haven't bookmarked any books yet.
+                    You haven&apos;t bookmarked any books yet.
                   </p>
                 </CardBody>
               </Card>
@@ -415,7 +415,7 @@ const AccountPage = () => {
               <Card>
                 <CardBody className="py-8 text-center">
                   <p className="text-default-500">
-                    You haven't added any books to favorites yet.
+                    You haven&apos;t added any books to favorites yet.
                   </p>
                 </CardBody>
               </Card>

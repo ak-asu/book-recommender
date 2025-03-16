@@ -1,10 +1,11 @@
-import { Card, CardBody, Button, Tooltip, Rating } from "@heroui/react";
+import { Card, CardBody, Button, Tooltip } from "@heroui/react";
 import { useRouter } from "next/router";
 import Image from "next/image";
 import { useState } from "react";
 
-import { BookmarkIcon, ShareIcon } from "../temp/Icons";
+import { BookmarkIcon, ShareIcon } from "../icons";
 import { useAuth } from "../../hooks/useAuth";
+import Rating from "../ui/Rating";
 
 interface BookCardProps {
   book: {
@@ -30,16 +31,14 @@ const BookCard: React.FC<BookCardProps> = ({ book, onBookmark }) => {
     router.push(`/books/${book.id}`);
   };
 
-  const handleBookmark = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleBookmark = () => {
     if (onBookmark) {
       onBookmark(book.id);
     }
     setBookmarked(!bookmarked);
   };
 
-  const handleShare = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleShare = () => {
     const bookUrl = `${window.location.origin}/books/${book.id}`;
 
     if (navigator.share) {
@@ -90,12 +89,14 @@ const BookCard: React.FC<BookCardProps> = ({ book, onBookmark }) => {
                   aria-label="Bookmark book"
                   size="sm"
                   variant="light"
-                  onPress={handleBookmark}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleBookmark();
+                  }}
                 >
                   <BookmarkIcon filled={bookmarked} />
                 </Button>
               </Tooltip>
-
               <Tooltip content="Share">
                 <Button
                   isIconOnly

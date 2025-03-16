@@ -10,19 +10,15 @@ import {
   Chip,
   Tooltip,
   Badge,
-  Rating,
 } from "@heroui/react";
 
-import {
-  BookmarkIcon,
-  HeartIcon,
-  ShareIcon,
-} from "../temp/Icons";
+import { BookmarkIcon, HeartIcon, ShareIcon } from "../icons";
 import { getBookById } from "../../services/bookService";
 import { addBookmark, addToFavorites } from "../../services/userService";
 import { useAuth } from "../../hooks/useAuth";
 import SimilarBooks from "../recommendations/SimilarBooks";
-import ErrorMessage from "../common/ErrorMessage";
+import Rating from "../ui/Rating";
+import ErrorMessage from "../ui/ErrorMessage";
 
 import BookExternalLinks from "./BookExternalLinks";
 import ReviewSection from "./ReviewSection";

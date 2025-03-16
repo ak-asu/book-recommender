@@ -6,8 +6,20 @@ import { getPopularBooks } from "../../services/bookService";
 import { addBookmark } from "../../services/userService";
 import { useAuth } from "../../hooks/useAuth";
 
+interface Book {
+  id: string;
+  image: string;
+  title: string;
+  author: string;
+  rating: number;
+  description: string;
+  publicationDate?: string;
+  reviewCount?: number;
+  genres?: string[];
+}
+
 const PopularBooks = () => {
-  const [books, setBooks] = useState([]);
+  const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated } = useAuth();

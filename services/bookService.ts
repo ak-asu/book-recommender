@@ -16,6 +16,7 @@ import {
 } from "firebase/firestore";
 
 import { firestore } from "../services/firebase";
+
 import { openai } from "./openai";
 
 // Types
@@ -37,8 +38,27 @@ interface ReviewData {
   text: string;
 }
 
+interface BookData {
+  id: string;
+  title: string;
+  author: string;
+  coverImage: string;
+  synopsis: string;
+  genres: string[];
+  rating: number;
+  reviewCount: number;
+  ranking?: number;
+  pageCount: number;
+  publicationDate: string;
+  publisher: string;
+  series?: {
+    name: string;
+    volume: number;
+  };
+}
+
 // Get a book by its ID
-export const getBookById = async (id: string) => {
+export const getBookById = async (id: string): Promise<BookData> => {
   try {
     const bookDoc = await getDoc(doc(firestore, "books", id));
 
@@ -46,7 +66,7 @@ export const getBookById = async (id: string) => {
       throw new Error("Book not found");
     }
 
-    return { id: bookDoc.id, ...bookDoc.data() };
+    return { id: bookDoc.id, ...(bookDoc.data() as Omit<BookData, "id">) };
   } catch (error) {
     console.error("Error fetching book:", error);
     throw error;
@@ -194,9 +214,17 @@ export const getSimilarBooks = async (
     throw error;
   }
 };
-
+interface Review {
+  id: string;
+  userId: string;
+  userName: string;
+  userAvatar?: string;
+  rating: number;
+  text: string;
+  createdAt: string;
+}
 // Get reviews for a book
-export const getBookReviews = async (bookId: string) => {
+export const getBookReviews = async (bookId: string): Promise<Review[]> => {
   try {
     const q = query(
       collection(firestore, "reviews"),
@@ -206,10 +234,19 @@ export const getBookReviews = async (bookId: string) => {
 
     const reviewsSnapshot = await getDocs(q);
 
-    return reviewsSnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    return reviewsSnapshot.docs.map((doc) => {
+      const data = doc.data();
+
+      return {
+        id: doc.id,
+        userId: data.userId,
+        userName: data.userName,
+        userAvatar: data.userAvatar,
+        rating: data.rating,
+        text: data.text,
+        createdAt: data.createdAt,
+      };
+    });
   } catch (error) {
     console.error("Error fetching reviews:", error);
     throw error;
@@ -346,8 +383,20 @@ export const getAIBookRecommendations = async (
   }
 };
 
+interface Book {
+  id: string;
+  image: string;
+  title: string;
+  author: string;
+  rating: number;
+  description: string;
+  publicationDate?: string;
+  reviewCount?: number;
+  genres?: string[];
+}
+
 // Get popular/trending books
-export const getPopularBooks = async (limitCount = 10) => {
+export const getPopularBooks = async (limitCount = 10): Promise<Book[]> => {
   try {
     const q = query(
       collection(firestore, "books"),
@@ -358,10 +407,21 @@ export const getPopularBooks = async (limitCount = 10) => {
 
     const querySnapshot = await getDocs(q);
 
-    return querySnapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    }));
+    return querySnapshot.docs.map((doc) => {
+      const data = doc.data();
+
+      return {
+        id: doc.id,
+        image: data.image,
+        title: data.title,
+        author: data.author,
+        rating: data.rating,
+        description: data.description,
+        publicationDate: data.publicationDate,
+        reviewCount: data.reviewCount,
+        genres: data.genres,
+      };
+    });
   } catch (error) {
     console.error("Error fetching popular books:", error);
     throw error;

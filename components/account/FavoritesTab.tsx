@@ -11,8 +11,20 @@ interface FavoritesTabProps {
   userId: string;
 }
 
+interface Book {
+  id: string;
+  image: string;
+  title: string;
+  author: string;
+  publicationDate?: string;
+  rating: number;
+  reviewCount?: number;
+  description: string;
+  genres?: string[];
+}
+
 const FavoritesTab: React.FC<FavoritesTabProps> = ({ userId }) => {
-  const [favorites, setFavorites] = useState([]);
+  const [favorites, setFavorites] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +87,7 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ userId }) => {
         <Card>
           <CardBody className="py-8 text-center">
             <p className="text-default-500">
-              You haven't added any books to your favorites yet.
+              You haven&#39;t added any books to your favorites yet.
             </p>
           </CardBody>
         </Card>

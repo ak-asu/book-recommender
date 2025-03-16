@@ -2,10 +2,12 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Container, Spinner } from "@heroui/react";
+import { Spinner } from "@heroui/react";
 
 import { useAuth } from "../../hooks/useAuth";
 import AccountTabs from "../../components/account/AccountTabs";
+
+import Container from "@/components/ui/Container";
 
 export default function AccountPage() {
   const { user, isAuthenticated, isLoading } = useAuth();

@@ -5,13 +5,13 @@ import {
   CardBody,
   Button,
   Avatar,
-  Rating,
   Textarea,
   Divider,
 } from "@heroui/react";
 
 import { useAuth } from "../../hooks/useAuth";
 import { getBookReviews, addBookReview } from "../../services/bookService";
+import Rating from "../ui/Rating";
 
 interface Review {
   id: string;
@@ -69,7 +69,7 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ bookId }) => {
         id: Date.now().toString(), // Temporary ID until we get the real one from the backend
         userId: user?.uid as string,
         userName: user?.displayName || "Anonymous",
-        userAvatar: user?.photoURL,
+        userAvatar: user?.photoURL || undefined,
         rating: newReview.rating,
         text: newReview.text,
         createdAt: new Date().toISOString(),

@@ -9,7 +9,19 @@ interface BookmarksTabProps {
 }
 
 const BookmarksTab: React.FC<BookmarksTabProps> = ({ userId }) => {
-  const [bookmarks, setBookmarks] = useState([]);
+  interface Book {
+    id: string;
+    image: string;
+    title: string;
+    author: string;
+    publicationDate?: string;
+    rating: number;
+    reviewCount?: number;
+    description: string;
+    genres?: string[];
+  }
+
+  const [bookmarks, setBookmarks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +84,7 @@ const BookmarksTab: React.FC<BookmarksTabProps> = ({ userId }) => {
         <Card>
           <CardBody className="py-8 text-center">
             <p className="text-default-500">
-              You haven't bookmarked any books yet.
+              You haven&apos;t bookmarked any books yet.
             </p>
           </CardBody>
         </Card>

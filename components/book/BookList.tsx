@@ -9,7 +9,7 @@ import {
   Spinner,
 } from "@heroui/react";
 
-import { ChevronDownIcon } from "../temp/Icons";
+import { ChevronDownIcon } from "../icons";
 
 import BookCard from "./BookCard";
 
