@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import { Button, Input, Link as NextUILink } from "@heroui/react";
 
 import { useAuth } from "../../hooks/useAuth";

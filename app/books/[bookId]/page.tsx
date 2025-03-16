@@ -1,4 +1,6 @@
-import { useRouter } from "next/router";
+"use client";
+
+import { useRouter, useParams } from "next/navigation";
 import { Button } from "@heroui/react";
 
 import BookDetails from "../../../components/book/BookDetails";
@@ -8,7 +10,8 @@ import Container from "@/components/ui/Container";
 
 const BookDetailPage = () => {
   const router = useRouter();
-  const { id } = router.query;
+  const params = useParams();
+  const bookId = params.bookId;
 
   const handleGoBack = () => {
     router.back();
@@ -26,7 +29,7 @@ const BookDetailPage = () => {
         </Button>
       </div>
 
-      {id && <BookDetails />}
+      {bookId && <BookDetails bookId={bookId as string} />}
     </Container>
   );
 };

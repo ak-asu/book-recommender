@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   Card,
@@ -42,9 +42,12 @@ interface BookData {
   };
 }
 
-const BookDetails = () => {
+interface BookDetailsProps {
+  bookId: string;
+}
+
+const BookDetails = ({ bookId }: BookDetailsProps) => {
   const router = useRouter();
-  const { id } = router.query;
   const [book, setBook] = useState<BookData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,20 +57,20 @@ const BookDetails = () => {
 
   // Fetch book details
   useEffect(() => {
-    if (!id) return;
+    if (!bookId) return;
 
     const fetchBookDetails = async () => {
       try {
         setLoading(true);
-        const bookData = await getBookById(id as string);
+        const bookData = await getBookById(bookId);
 
         setBook(bookData);
 
         // Check if user has bookmarked/favorited this book
         if (isAuthenticated && user) {
           // These would be functions that check user data in Firebase
-          // setBookmarked(await isBookmarked(user.uid, id as string));
-          // setFavorited(await isFavorited(user.uid, id as string));
+          // setBookmarked(await isBookmarked(user.uid, bookId));
+          // setFavorited(await isFavorited(user.uid, bookId));
         }
       } catch (err) {
         console.error("Error fetching book details:", err);
@@ -78,17 +81,16 @@ const BookDetails = () => {
     };
 
     fetchBookDetails();
-  }, [id, isAuthenticated, user]);
+  }, [bookId, isAuthenticated, user]);
 
   const handleBookmark = async () => {
     if (!isAuthenticated) {
-      router.push("/login?redirect=" + encodeURIComponent(router.asPath));
-
+      router.push("/login?redirect=" + encodeURIComponent(window.location.pathname));
       return;
     }
 
     try {
-      await addBookmark(user?.uid as string, id as string);
+      await addBookmark(user?.uid as string, bookId);
       setBookmarked(!bookmarked);
     } catch (err) {
       console.error("Error bookmarking book:", err);
@@ -98,13 +100,12 @@ const BookDetails = () => {
 
   const handleAddToFavorites = async () => {
     if (!isAuthenticated) {
-      router.push("/login?redirect=" + encodeURIComponent(router.asPath));
-
+      router.push("/login?redirect=" + encodeURIComponent(window.location.pathname));
       return;
     }
 
     try {
-      await addToFavorites(user?.uid as string, id as string);
+      await addToFavorites(user?.uid as string, bookId);
       setFavorited(!favorited);
     } catch (err) {
       console.error("Error adding to favorites:", err);

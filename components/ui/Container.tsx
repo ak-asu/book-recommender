@@ -1,6 +1,5 @@
+"use client";
 import { FC, ReactNode } from "react";
-
-("use client");
 
 interface ContainerProps {
   children: ReactNode;

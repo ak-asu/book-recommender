@@ -1,5 +1,7 @@
+"use client";
+
 import { useState, useEffect } from "react";
-import { useRouter } from "next/router";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Spinner } from "@heroui/react";
 
 import SearchBar from "@/components/ui/SearchBar";
@@ -31,22 +33,25 @@ const HomePage = () => {
   const [hasSearched, setHasSearched] = useState(false);
   const { user } = useAuth();
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   // Load initial search from URL query params if present
   useEffect(() => {
-    const { q, genres, mood, length } = router.query;
+    const q = searchParams.get('q');
+    const genres = searchParams.getAll('genres');
+    const mood = searchParams.get('mood');
+    const length = searchParams.get('length');
 
     if (q) {
       const options: SearchOptions = {};
 
-      if (genres)
-        options.genres = Array.isArray(genres) ? genres : [genres as string];
-      if (mood) options.mood = mood as string;
+      if (genres.length > 0) options.genres = genres;
+      if (mood) options.mood = mood;
       if (length) options.length = length as "short" | "medium" | "long";
 
-      handleSearch(q as string, options);
+      handleSearch(q, options);
     }
-  }, [router.isReady]);
+  }, [searchParams]);
 
   const handleSearch = async (query: string, options: SearchOptions) => {
     try {
@@ -54,16 +59,16 @@ const HomePage = () => {
       setError(null);
 
       // Update URL to reflect search
-      const queryParams = new URLSearchParams();
+      const params = new URLSearchParams();
 
-      queryParams.append("q", query);
+      params.set("q", query);
       if (options.genres?.length) {
-        options.genres.forEach((genre) => queryParams.append("genres", genre));
+        options.genres.forEach((genre) => params.append("genres", genre));
       }
-      if (options.mood) queryParams.append("mood", options.mood);
-      if (options.length) queryParams.append("length", options.length);
+      if (options.mood) params.set("mood", options.mood);
+      if (options.length) params.set("length", options.length);
 
-      router.push(`/?${queryParams.toString()}`, undefined, { shallow: true });
+      router.push(`/?${params.toString()}`);
 
       // Get recommendations from AI
       const results = await getAIBookRecommendations(query, {
