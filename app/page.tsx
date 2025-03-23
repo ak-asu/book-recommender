@@ -7,7 +7,6 @@ import { Spinner } from "@heroui/react";
 import SearchBar from "@/components/ui/SearchBar";
 import BookList from "@/components/book/BookList";
 import PopularBooks from "@/components/recommendations/PopularBooks";
-import { getAIBookRecommendations } from "@/services/bookService";
 import { useAuth } from "@/hooks/useAuth";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import Container from "@/components/ui/Container";
@@ -37,10 +36,10 @@ const HomePage = () => {
 
   // Load initial search from URL query params if present
   useEffect(() => {
-    const q = searchParams.get('q');
-    const genres = searchParams.getAll('genres');
-    const mood = searchParams.get('mood');
-    const length = searchParams.get('length');
+    const q = searchParams.get("q");
+    const genres = searchParams.getAll("genres");
+    const mood = searchParams.get("mood");
+    const length = searchParams.get("length");
 
     if (q) {
       const options: SearchOptions = {};
@@ -58,29 +57,30 @@ const HomePage = () => {
       setIsSearching(true);
       setError(null);
 
-      // Update URL to reflect search
-      const params = new URLSearchParams();
-
-      params.set("q", query);
-      if (options.genres?.length) {
-        options.genres.forEach((genre) => params.append("genres", genre));
-      }
-      if (options.mood) params.set("mood", options.mood);
-      if (options.length) params.set("length", options.length);
-
-      router.push(`/?${params.toString()}`);
-
-      // Get recommendations from AI
-      const results = await getAIBookRecommendations(query, {
-        ...options,
-        userId: user?.uid,
+      // Create a new chat and get recommendations
+      const response = await fetch("/api/chat/create", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          message: query,
+          options,
+          userId: user?.uid || "guest",
+        }),
       });
 
-      setSearchResults(results);
-      setHasSearched(true);
+      if (!response.ok) {
+        throw new Error("Failed to create chat");
+      }
+
+      const data = await response.json();
+
+      // Navigate to the chat page with the new chat ID
+      router.push(`/chat/${data.chatId}`);
 
       // Add to history
-      const newEntry = { query, options, results };
+      const newEntry = { query, options, results: data.recommendations || [] };
 
       if (currentHistoryIndex < history.length - 1) {
         // If we're not at the end of the history, trim the future

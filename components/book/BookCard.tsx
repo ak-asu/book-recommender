@@ -20,6 +20,8 @@ interface BookCardProps {
     genres?: string[];
   };
   onBookmark?: (bookId: string) => void;
+  onClick?: () => void;
+  onShare?: () => void;
 }
 
 const BookCard: React.FC<BookCardProps> = ({ book, onBookmark }) => {

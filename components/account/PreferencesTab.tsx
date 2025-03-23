@@ -66,8 +66,8 @@ const PreferencesTab: React.FC<PreferencesTabProps> = ({ userId }) => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center pt-10">
-        <Spinner size="lg" />
+      <div className="flex justify-center py-12">
+        <Spinner label="Loading your favorites..." size="lg" />
       </div>
     );
   }

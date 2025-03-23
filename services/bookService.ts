@@ -17,7 +17,8 @@ import {
 
 import { firestore } from "../services/firebase";
 
-import { openai } from "./openai";
+// Import the new AIProvider system
+import { AIProviderFactory } from "./openai";
 
 // Types
 interface BookQuery {
@@ -297,6 +298,8 @@ export const getAIBookRecommendations = async (
     mood?: string;
     length?: "short" | "medium" | "long";
     userId?: string;
+    provider?: "openai" | "gemini";
+    chatId?: string;
   } = {},
 ) => {
   try {
@@ -313,7 +316,7 @@ export const getAIBookRecommendations = async (
       }
     }
 
-    // Construct the prompt for OpenAI
+    // Construct the prompt for AI
     let prompt = `Recommend books based on the following query: "${query}"`;
 
     if (options.genres?.length) {
@@ -338,32 +341,13 @@ export const getAIBookRecommendations = async (
       }
     }
 
-    prompt +=
-      "\nPlease provide each recommendation in JSON format with these fields: title, author, description, genres, and estimated rating (1-5).";
+    // Get the appropriate AI provider based on options
+    const aiProvider = AIProviderFactory.getProvider(
+      options.provider || "openai",
+    );
 
-    // Call OpenAI API
-    const completion = await openai.chat.completions.create({
-      messages: [
-        {
-          role: "system",
-          content:
-            "You are a book recommendation assistant. Provide book recommendations based on the user's query and preferences.",
-        },
-        { role: "user", content: prompt },
-      ],
-      model: "gpt-3.5-turbo-1106",
-      response_format: { type: "json_object" },
-    });
-
-    // Process the response
-    const responseContent = completion.choices[0].message.content;
-
-    if (!responseContent) {
-      throw new Error("Empty response from AI");
-    }
-
-    // Parse the JSON response
-    const recommendations = JSON.parse(responseContent);
+    // Get recommendations from the AI provider
+    const recommendations = await aiProvider.getRecommendations(prompt);
 
     // Save the query and recommendations to the user's history if userId is provided
     if (options.userId) {

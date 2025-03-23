@@ -9,32 +9,12 @@ export const siteConfig = {
       href: "/",
     },
     {
-      label: "Account",
-      href: "/account",
-    },
-    {
-      label: "Login",
-      href: "/login",
-    },
-    {
-      label: "Logout",
-      href: "/logout",
-    },
-    {
-      label: "Register",
-      href: "/register",
-    },
-    {
-      label: "History",
-      href: "/history",
+      label: "About",
+      href: "/about",
     },
     {
       label: "Books",
       href: "/books",
-    },
-    {
-      label: "Favourites",
-      href: "/favourites",
     },
   ],
   navMenuItems: [
@@ -43,20 +23,8 @@ export const siteConfig = {
       href: "/",
     },
     {
-      label: "Account",
-      href: "/account",
-    },
-    {
-      label: "Login",
-      href: "/login",
-    },
-    {
-      label: "Register",
-      href: "/register",
-    },
-    {
-      label: "History",
-      href: "/history",
+      label: "About",
+      href: "/about",
     },
     {
       label: "Books",
@@ -66,16 +34,5 @@ export const siteConfig = {
       label: "Favourites",
       href: "/favourites",
     },
-    {
-      label: "Logout",
-      href: "/logout",
-    },
   ],
-  links: {
-    github: "https://github.com/heroui-inc/heroui",
-    twitter: "https://twitter.com/hero_ui",
-    docs: "https://heroui.com",
-    discord: "https://discord.gg/9b6yyZKmH4",
-    sponsor: "https://patreon.com/jrgarciadev",
-  },
 };

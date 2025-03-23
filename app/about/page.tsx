@@ -1,3 +1,5 @@
+"use client";
+
 import { Card, CardBody, Divider, Link } from "@heroui/react";
 
 import Container from "@/components/ui/Container";
@@ -5,7 +7,7 @@ import { title, subtitle } from "@/lib/primitives";
 
 export default function AboutPage() {
   return (
-    <Container className="py-8 px-4 md:px-8 max-w-5xl mx-auto">
+    <Container className="py-8 px-4 md:px-8 mx-auto">
       <div className="text-center mb-10">
         <h1 className={title({ size: "lg" })}>About Our Book Recommender</h1>
         <p className={subtitle({ class: "mt-4" })}>

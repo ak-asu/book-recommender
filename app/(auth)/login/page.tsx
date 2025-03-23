@@ -2,66 +2,31 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
-import {
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-} from "firebase/auth";
-import {
-  Button,
-  Input,
-  Card,
-  CardBody,
-  CardHeader,
-  CardFooter,
-  Divider,
-} from "@heroui/react";
-import { EyeIcon, EyeOffIcon } from "lucide-react";
+import { Button, Card, CardBody, CardHeader, Divider } from "@heroui/react";
 
-import { auth } from "@/lib/firebase";
+import LoginForm from "@/components/auth/LoginForm";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [isVisible, setIsVisible] = useState(false);
-  const [error, setError] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const { signInWithGoogle } = useAuth();
+  const [googleError, setGoogleError] = useState<string | null>(null);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
 
-  const toggleVisibility = () => setIsVisible(!isVisible);
-
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError("");
+  const handleGoogleLogin = async () => {
+    setIsGoogleLoading(true);
+    setGoogleError(null);
 
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      router.push("/"); // Redirect to home page after successful login
-    } catch (error: any) {
-      console.error("Login error:", error);
-      setError(
-        error.message || "Failed to login. Please check your credentials.",
+      await signInWithGoogle();
+      router.push("/");
+    } catch (err: any) {
+      console.error("Google login error:", err);
+      setGoogleError(
+        err.message || "Failed to login with Google. Please try again.",
       );
     } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleGoogleLogin = async () => {
-    setIsLoading(true);
-    setError("");
-    const provider = new GoogleAuthProvider();
-
-    try {
-      await signInWithPopup(auth, provider);
-      router.push("/");
-    } catch (error: any) {
-      console.error("Google login error:", error);
-      setError(error.message || "Failed to login with Google.");
-    } finally {
-      setIsLoading(false);
+      setIsGoogleLoading(false);
     }
   };
 
@@ -73,73 +38,58 @@ export default function LoginPage() {
         </CardHeader>
 
         <CardBody>
-          {error && (
-            <div className="bg-danger-100 text-danger p-3 rounded-lg mb-4">
-              {error}
-            </div>
-          )}
-
-          <form className="space-y-4" onSubmit={handleLogin}>
-            <Input
-              isRequired
-              label="Email"
-              placeholder="Enter your email"
-              type="email"
-              value={email}
-              variant="bordered"
-              onChange={(e) => setEmail(e.target.value)}
-            />
-
-            <Input
-              isRequired
-              endContent={
-                <button type="button" onClick={toggleVisibility}>
-                  {isVisible ? (
-                    <EyeOffIcon className="text-2xl text-default-400 pointer-events-none" />
-                  ) : (
-                    <EyeIcon className="text-2xl text-default-400 pointer-events-none" />
-                  )}
-                </button>
-              }
-              label="Password"
-              placeholder="Enter your password"
-              type={isVisible ? "text" : "password"}
-              value={password}
-              variant="bordered"
-              onChange={(e) => setPassword(e.target.value)}
-            />
-
-            <Button
-              className="w-full"
-              color="primary"
-              isLoading={isLoading}
-              type="submit"
-            >
-              Log In
-            </Button>
-          </form>
+          <LoginForm
+            redirectPath="/"
+            onSwitchToRegister={() => router.push("/register")}
+            onSwitchToReset={() => router.push("/reset-password")}
+          />
 
           <Divider className="my-4" />
 
+          {googleError && (
+            <div className="mb-3">
+              <p className="text-danger text-small">{googleError}</p>
+            </div>
+          )}
+
           <Button
             className="w-full"
-            isLoading={isLoading}
+            isLoading={isGoogleLoading}
+            startContent={!isGoogleLoading && <GoogleIcon />}
             variant="bordered"
             onClick={handleGoogleLogin}
           >
             Continue with Google
           </Button>
         </CardBody>
-
-        <CardFooter className="flex justify-center pt-0">
-          <p>
-            Don&apos;t have an account?{" "}
-            <Link className="text-primary cursor-pointer" href="/auth/register">
-              Sign Up
-            </Link>
-          </p>
-        </CardFooter>
       </Card>
     </div>
   );
 }
+
+// Simple Google icon component
+const GoogleIcon = () => (
+  <svg
+    height="18"
+    viewBox="0 0 48 48"
+    width="18"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path
+      d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24c0,11.045,8.955,20,20,20c11.045,0,20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"
+      fill="#FFC107"
+    />
+    <path
+      d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"
+      fill="#FF3D00"
+    />
+    <path
+      d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"
+      fill="#4CAF50"
+    />
+    <path
+      d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.571c0.001-0.001,0.002-0.001,0.003-0.002l6.19,5.238C36.971,39.205,44,34,44,24C44,22.659,43.862,21.35,43.611,20.083z"
+      fill="#1976D2"
+    />
+  </svg>
+);

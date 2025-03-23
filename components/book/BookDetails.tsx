@@ -85,7 +85,10 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
 
   const handleBookmark = async () => {
     if (!isAuthenticated) {
-      router.push("/login?redirect=" + encodeURIComponent(window.location.pathname));
+      router.push(
+        "/login?redirect=" + encodeURIComponent(window.location.pathname),
+      );
+
       return;
     }
 
@@ -100,7 +103,10 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
 
   const handleAddToFavorites = async () => {
     if (!isAuthenticated) {
-      router.push("/login?redirect=" + encodeURIComponent(window.location.pathname));
+      router.push(
+        "/login?redirect=" + encodeURIComponent(window.location.pathname),
+      );
+
       return;
     }
 
