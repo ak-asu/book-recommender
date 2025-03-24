@@ -2,12 +2,12 @@ import { useState } from "react";
 import { Card, CardHeader, Button, Tabs, Tab } from "@heroui/react";
 import { User } from "firebase/auth";
 
-import { useAuth } from "../../hooks/useAuth";
-
 import ProfileTab from "./ProfileTab";
 import PreferencesTab from "./PreferencesTab";
 import BookmarksTab from "./BookmarksTab";
 import FavoritesTab from "./FavoritesTab";
+
+import { useAuth } from "@/hooks/useAuth";
 
 interface AccountTabsProps {
   user: User;
@@ -22,9 +22,7 @@ const AccountTabs: React.FC<AccountTabsProps> = ({ user }) => {
     try {
       setIsLoading(true);
       await signOut();
-      // Navigation will happen automatically due to auth state change
-    } catch (err) {
-      console.error("Error signing out:", err);
+    } catch {
       setIsLoading(false);
     }
   };
@@ -44,7 +42,6 @@ const AccountTabs: React.FC<AccountTabsProps> = ({ user }) => {
           </Button>
         </CardHeader>
       </Card>
-
       <Tabs
         aria-label="Account sections"
         classNames={{
@@ -61,15 +58,12 @@ const AccountTabs: React.FC<AccountTabsProps> = ({ user }) => {
         <Tab key="profile" title="Profile">
           <ProfileTab user={user} />
         </Tab>
-
         <Tab key="preferences" title="Preferences">
           <PreferencesTab userId={user.uid} />
         </Tab>
-
         <Tab key="bookmarks" title="Bookmarks">
           <BookmarksTab userId={user.uid} />
         </Tab>
-
         <Tab key="favorites" title="Favorites">
           <FavoritesTab userId={user.uid} />
         </Tab>

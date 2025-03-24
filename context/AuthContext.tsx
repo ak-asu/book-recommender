@@ -12,7 +12,7 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
-import { auth, firestore } from "../services/firebase";
+import { auth, firestore } from "../lib/firebase";
 
 interface AuthContextProps {
   user: FirebaseUser | null;

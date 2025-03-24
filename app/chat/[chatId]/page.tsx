@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Button, Spinner, Avatar, Tooltip } from "@heroui/react";
+import { Button, Spinner, Avatar, Tooltip, Input } from "@heroui/react";
 import {
   doc,
   getDoc,
@@ -10,6 +10,7 @@ import {
   query,
   orderBy,
   getDocs,
+  updateDoc,
 } from "firebase/firestore";
 import {
   ArrowLeft,
@@ -20,14 +21,17 @@ import {
   RefreshCw,
   ThumbsUp,
   ThumbsDown,
+  Edit,
+  Check,
+  Plus,
 } from "lucide-react";
 
-import { db } from "@/lib/firebase";
+import { firestore } from "@/lib/firebase";
 import { useAuth } from "@/hooks/useAuth";
 import BookCard from "@/components/book/BookCard";
-// import ChatInput from "@/components/ui/ChatInput";
 import Container from "@/components/ui/Container";
 import ChatInput from "@/components/ui/ChatInput";
+import { useToast } from "@/hooks/useToast";
 
 interface Message {
   id: string;
@@ -51,6 +55,7 @@ interface Book {
 
 export default function ChatPage() {
   const { chatId } = useParams();
+  const { toast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
@@ -58,43 +63,33 @@ export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [chatTitle, setChatTitle] = useState("New Chat");
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState("");
   const messagesEndRef = useRef<null | HTMLDivElement>(null);
 
-  // Fetch chat history when component mounts
   useEffect(() => {
     const fetchChatHistory = async () => {
       try {
         setLoading(true);
-
-        // Get chat document
-        const chatRef = doc(db, "chats", chatId as string);
+        const chatRef = doc(firestore, "chats", chatId as string);
         const chatSnap = await getDoc(chatRef);
-
         if (!chatSnap.exists()) {
           router.push("/");
-
           return;
         }
-
         const chatData = chatSnap.data();
-
         setChatTitle(chatData.title || "Untitled Chat");
-
-        // Get messages for this chat
         const messagesRef = collection(
-          db,
+          firestore,
           "chats",
           chatId as string,
           "messages",
         );
         const messagesQuery = query(messagesRef, orderBy("timestamp", "asc"));
         const messagesSnap = await getDocs(messagesQuery);
-
         const messagesList: Message[] = [];
-
         messagesSnap.forEach((doc) => {
           const data = doc.data();
-
           messagesList.push({
             id: doc.id,
             content: data.content,
@@ -103,43 +98,38 @@ export default function ChatPage() {
             recommendations: data.recommendations || [],
           });
         });
-
         setMessages(messagesList);
-      } catch (error) {
-        console.error("Error fetching chat history:", error);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to load chat history. Please try again.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
-
     if (chatId) {
       fetchChatHistory();
     }
   }, [chatId, router]);
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
   const handleSendMessage = async () => {
     if (!input.trim()) return;
-
     try {
       setSending(true);
-
-      // Add user message to UI immediately for responsiveness
       const userMessage: Message = {
         id: Date.now().toString(),
         content: input,
         sender: "user",
         timestamp: new Date(),
       };
-
       setMessages((prev) => [...prev, userMessage]);
       setInput("");
-
-      // Send message to backend
       const response = await fetch("/api/chat", {
         method: "POST",
         headers: {
@@ -151,14 +141,10 @@ export default function ChatPage() {
           userId: user?.uid || "guest",
         }),
       });
-
       if (!response.ok) {
         throw new Error("Failed to send message");
       }
-
       const data = await response.json();
-
-      // Add assistant message with recommendations
       const assistantMessage: Message = {
         id: Date.now().toString() + "-assistant",
         content: data.message,
@@ -166,11 +152,13 @@ export default function ChatPage() {
         timestamp: new Date(),
         recommendations: data.recommendations || [],
       };
-
       setMessages((prev) => [...prev, assistantMessage]);
-    } catch (error) {
-      console.error("Error sending message:", error);
-      // Show error notification
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to send message. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
     }
@@ -193,29 +181,24 @@ export default function ChatPage() {
           userId: user?.uid || "guest",
         }),
       });
-
-      // Update UI to show feedback was recorded
-      // This could be updating the message state to reflect the feedback
-    } catch (error) {
-      console.error("Error sending feedback:", error);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to send feedback. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
   const handleRegenerateRecommendations = async () => {
     try {
       setSending(true);
-
-      // Get the last user message
       const lastUserMessageIndex = [...messages]
         .reverse()
         .findIndex((m) => m.sender === "user");
-
       if (lastUserMessageIndex === -1) return;
-
       const lastUserMessage =
         messages[messages.length - 1 - lastUserMessageIndex];
-
-      // Call API to regenerate recommendations
       const response = await fetch("/api/regenerate", {
         method: "POST",
         headers: {
@@ -227,19 +210,13 @@ export default function ChatPage() {
           userId: user?.uid || "guest",
         }),
       });
-
       if (!response.ok) {
         throw new Error("Failed to regenerate recommendations");
       }
-
       const data = await response.json();
-
-      // Replace the last assistant message with new recommendations
       setMessages((prev) => {
         const newMessages = [...prev];
-        // Find the last assistant message
         const lastAssistantIndex = newMessages.length - 1;
-
         if (
           lastAssistantIndex >= 0 &&
           newMessages[lastAssistantIndex].sender === "assistant"
@@ -250,7 +227,6 @@ export default function ChatPage() {
             recommendations: data.recommendations || [],
           };
         } else {
-          // If no assistant message found, add a new one
           newMessages.push({
             id: Date.now().toString() + "-assistant",
             content: data.message,
@@ -259,11 +235,14 @@ export default function ChatPage() {
             recommendations: data.recommendations || [],
           });
         }
-
         return newMessages;
       });
-    } catch (error) {
-      console.error("Error regenerating recommendations:", error);
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to regenerate recommendations. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setSending(false);
     }
@@ -276,28 +255,27 @@ export default function ChatPage() {
           method: "DELETE",
         });
         router.push("/");
-      } catch (error) {
-        console.error("Error deleting chat:", error);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Failed to delete chat. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };
 
   const handleExportChat = () => {
-    // Format chat data for export
     const chatData = messages.map((msg) => ({
       sender: msg.sender,
       content: msg.content,
       timestamp: msg.timestamp.toISOString(),
       recommendations: msg.recommendations,
     }));
-
     const dataStr = JSON.stringify(chatData, null, 2);
     const dataUri = `data:application/json;charset=utf-8,${encodeURIComponent(dataStr)}`;
-
     const exportFileDefaultName = `chat-${chatId}-${new Date().toISOString()}.json`;
-
     const linkElement = document.createElement("a");
-
     linkElement.setAttribute("href", dataUri);
     linkElement.setAttribute("download", exportFileDefaultName);
     linkElement.click();
@@ -306,10 +284,53 @@ export default function ChatPage() {
   const handleShareChat = async () => {
     try {
       await navigator.clipboard.writeText(window.location.href);
-      // Show success notification
-    } catch (error) {
-      console.error("Error sharing chat:", error);
+      toast({
+        title: "Success",
+        description: "Chat link copied to clipboard!",
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to share chat. Please try again.",
+        variant: "destructive",
+      });
     }
+  };
+
+  const handleEditTitle = () => {
+    setEditedTitle(chatTitle);
+    setIsEditingTitle(true);
+  };
+
+  const handleSaveTitle = async () => {
+    if (!editedTitle.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    try {
+      const chatRef = doc(firestore, "chats", chatId as string);
+      await updateDoc(chatRef, {
+        title: editedTitle,
+      });
+      setChatTitle(editedTitle);
+      setIsEditingTitle(false);
+      toast({
+        title: "Success",
+        description: "Chat title updated",
+        variant: "success",
+      });
+    } catch {
+      toast({
+        title: "Error",
+        description: "Failed to update chat title",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleNewChat = () => {
+    router.push("/");
   };
 
   if (loading) {
@@ -322,30 +343,73 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-screen">
-      {/* Header */}
       <header className="bg-background border-b border-divider p-4 flex justify-between items-center">
         <div className="flex items-center space-x-2">
           <Button
             isIconOnly
             aria-label="Go back"
             variant="light"
-            onClick={() => router.back()}
+            onPress={() => router.back()}
           >
             <ArrowLeft size={20} />
           </Button>
           <Button isIconOnly aria-label="Go forward" variant="light">
             <ArrowRight size={20} />
           </Button>
-          <h1 className="text-xl font-semibold truncate">{chatTitle}</h1>
+          {isEditingTitle ? (
+            <div className="flex items-center gap-2">
+              <Input
+                className="w-64"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    handleSaveTitle();
+                  } else if (e.key === "Escape") {
+                    setIsEditingTitle(false);
+                  }
+                }}
+              />
+              <Button
+                isIconOnly
+                aria-label="Save title"
+                variant="light"
+                onPress={handleSaveTitle}
+              >
+                <Check size={20} />
+              </Button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-semibold truncate">{chatTitle}</h1>
+              <Button
+                isIconOnly
+                aria-label="Edit chat title"
+                variant="light"
+                onPress={handleEditTitle}
+              >
+                <Edit size={16} />
+              </Button>
+            </div>
+          )}
         </div>
-
         <div className="flex items-center space-x-2">
+          <Tooltip content="New Chat">
+            <Button
+              aria-label="New Chat"
+              startContent={<Plus size={20} />}
+              variant="light"
+              onPress={handleNewChat}
+            >
+              New Chat
+            </Button>
+          </Tooltip>
           <Tooltip content="Delete chat">
             <Button
               isIconOnly
               aria-label="Delete chat"
               variant="light"
-              onClick={handleDeleteChat}
+              onPress={handleDeleteChat}
             >
               <Trash size={20} />
             </Button>
@@ -355,7 +419,7 @@ export default function ChatPage() {
               isIconOnly
               aria-label="Export chat"
               variant="light"
-              onClick={handleExportChat}
+              onPress={handleExportChat}
             >
               <Download size={20} />
             </Button>
@@ -365,15 +429,13 @@ export default function ChatPage() {
               isIconOnly
               aria-label="Share chat"
               variant="light"
-              onClick={handleShareChat}
+              onPress={handleShareChat}
             >
               <Share size={20} />
             </Button>
           </Tooltip>
         </div>
       </header>
-
-      {/* Chat messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-6">
         {messages.map((message) => (
           <div
@@ -399,9 +461,7 @@ export default function ChatPage() {
                     : user?.displayName || "You"}
                 </span>
               </div>
-
               <div className="prose dark:prose-invert">{message.content}</div>
-
               {message.recommendations &&
                 message.recommendations.length > 0 && (
                   <div className="mt-4 space-y-4">
@@ -412,12 +472,11 @@ export default function ChatPage() {
                         size="sm"
                         startContent={<RefreshCw size={16} />}
                         variant="light"
-                        onClick={handleRegenerateRecommendations}
+                        onPress={handleRegenerateRecommendations}
                       >
                         Regenerate
                       </Button>
                     </div>
-
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       {message.recommendations.map((book) => (
                         <BookCard
@@ -433,14 +492,13 @@ export default function ChatPage() {
                         />
                       ))}
                     </div>
-
                     <div className="flex justify-end gap-2 mt-2">
                       <Button
                         color="success"
                         size="sm"
                         startContent={<ThumbsUp size={16} />}
                         variant="flat"
-                        onClick={() => handleFeedback(message.id, "like")}
+                        onPress={() => handleFeedback(message.id, "like")}
                       >
                         Helpful
                       </Button>
@@ -449,7 +507,7 @@ export default function ChatPage() {
                         size="sm"
                         startContent={<ThumbsDown size={16} />}
                         variant="flat"
-                        onClick={() => handleFeedback(message.id, "dislike")}
+                        onPress={() => handleFeedback(message.id, "dislike")}
                       >
                         Not helpful
                       </Button>
@@ -461,8 +519,6 @@ export default function ChatPage() {
         ))}
         <div ref={messagesEndRef} />
       </div>
-
-      {/* Input area */}
       <div className="border-t border-divider p-4">
         <ChatInput
           isLoading={sending}

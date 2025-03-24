@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { Card, CardBody, Spinner } from "@heroui/react";
 
 import BookList from "../book/BookList";
-import { getUserBookmarks, removeBookmark } from "../../services/userService";
+
+import { getUserBookmarks, removeBookmark } from "@/services/userService";
 
 interface BookmarksTabProps {
   userId: string;
@@ -30,10 +31,8 @@ const BookmarksTab: React.FC<BookmarksTabProps> = ({ userId }) => {
       try {
         setLoading(true);
         const data = await getUserBookmarks(userId);
-
         setBookmarks(data);
-      } catch (err) {
-        console.error("Error loading bookmarks:", err);
+      } catch {
         setError("Failed to load your bookmarks. Please try again.");
       } finally {
         setLoading(false);
@@ -50,8 +49,7 @@ const BookmarksTab: React.FC<BookmarksTabProps> = ({ userId }) => {
       setBookmarks((prevBookmarks) =>
         prevBookmarks.filter((book: any) => book.id !== bookId),
       );
-    } catch (err) {
-      console.error("Error removing bookmark:", err);
+    } catch {
       setError("Failed to remove bookmark. Please try again.");
     }
   };
@@ -77,7 +75,6 @@ const BookmarksTab: React.FC<BookmarksTabProps> = ({ userId }) => {
   return (
     <div className="mt-6">
       <h2 className="text-xl font-bold mb-4">Your Bookmarked Books</h2>
-
       {bookmarks.length > 0 ? (
         <BookList books={bookmarks} onBookmark={handleRemoveBookmark} />
       ) : (

@@ -27,7 +27,6 @@ import { useAuth } from "@/hooks/useAuth"; // You'll need to create this context
 import { siteConfig } from "@/config/site";
 import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { Logo } from "@/components/icons";
-import Sidebar from "@/components/ui/Sidebar"; // Import Sidebar component
 
 export const Navbar = () => {
   const { user, signOut } = useAuth(); // Get user and logout function from auth context
@@ -85,7 +84,6 @@ export const Navbar = () => {
   return (
     <HeroUINavbar maxWidth="xl" position="sticky">
       <NavbarContent className="basis-1/5 sm:basis-full" justify="start">
-        <Sidebar /> {/* Add Sidebar component */}
         <NavbarBrand as="li" className="gap-3 max-w-fit">
           <NextLink className="flex justify-start items-center gap-1" href="/">
             <Logo />

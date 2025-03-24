@@ -8,7 +8,7 @@ import {
   doc,
 } from "firebase/firestore";
 
-import { firestore } from "../services/firebase";
+import { firestore } from "../lib/firebase";
 
 import { RootState } from "./store";
 

@@ -15,7 +15,6 @@ export default function AboutPage() {
           engine
         </p>
       </div>
-
       <Card className="mb-8 shadow-md">
         <CardBody>
           <h2 className={title({ size: "sm" })}>Our Mission</h2>
@@ -27,7 +26,6 @@ export default function AboutPage() {
           </p>
         </CardBody>
       </Card>
-
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
         <Card className="shadow-md">
           <CardBody>
@@ -48,7 +46,6 @@ export default function AboutPage() {
             </ul>
           </CardBody>
         </Card>
-
         <Card className="shadow-md">
           <CardBody>
             <h2 className={title({ size: "sm" })}>Our Technology</h2>
@@ -66,7 +63,6 @@ export default function AboutPage() {
           </CardBody>
         </Card>
       </div>
-
       <Card className="mb-8 shadow-md">
         <CardBody>
           <h2 className={title({ size: "sm" })}>Features</h2>
@@ -107,7 +103,6 @@ export default function AboutPage() {
           </div>
         </CardBody>
       </Card>
-
       <Card>
         <CardBody className="text-center">
           <h2 className={title({ size: "sm" })}>Get Started</h2>
@@ -132,7 +127,6 @@ export default function AboutPage() {
           </div>
         </CardBody>
       </Card>
-
       <footer className="mt-12 text-center text-gray-500 text-sm">
         <p>
           © {new Date().getFullYear()} Book Recommender. All rights reserved.

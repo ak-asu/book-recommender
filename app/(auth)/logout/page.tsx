@@ -18,7 +18,6 @@ export default function LogoutPage() {
       await signOut(auth);
       router.push("/");
     } catch (error: any) {
-      console.error("Logout error:", error);
       setError(error.message || "Failed to logout. Please try again.");
     } finally {
       setIsLoading(false);
@@ -35,20 +34,17 @@ export default function LogoutPage() {
         <CardBody className="text-center">
           <h1 className="text-2xl font-bold mb-4">Log Out</h1>
           <p className="mb-6">Are you sure you want to log out?</p>
-
           {error && (
             <div className="bg-danger-100 text-danger p-3 rounded-lg mb-4">
               {error}
             </div>
           )}
         </CardBody>
-
         <CardFooter className="flex justify-center gap-4">
-          <Button variant="bordered" onClick={handleCancel}>
+          <Button variant="bordered" onPress={handleCancel}>
             Cancel
           </Button>
-
-          <Button color="danger" isLoading={isLoading} onClick={handleLogout}>
+          <Button color="danger" isLoading={isLoading} onPress={handleLogout}>
             Log Out
           </Button>
         </CardFooter>

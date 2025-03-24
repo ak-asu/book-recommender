@@ -15,7 +15,7 @@ import {
   deleteDoc,
 } from "firebase/firestore";
 
-import { firestore } from "../services/firebase";
+import { firestore } from "../lib/firebase";
 
 // Add a book to user's bookmarks
 export const addBookmark = async (userId: string, bookId: string) => {

@@ -3,9 +3,8 @@
 import { useRouter, useParams } from "next/navigation";
 import { Button } from "@heroui/react";
 
-import BookDetails from "../../../components/book/BookDetails";
-import { BackIcon } from "../../../components/icons";
-
+import BookDetails from "@/components/book/BookDetails";
+import { BackIcon } from "@/components/icons";
 import Container from "@/components/ui/Container";
 
 const BookDetailPage = () => {
@@ -28,7 +27,6 @@ const BookDetailPage = () => {
           Back
         </Button>
       </div>
-
       {bookId && <BookDetails bookId={bookId as string} />}
     </Container>
   );

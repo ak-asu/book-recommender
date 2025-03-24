@@ -15,10 +15,10 @@ import {
   QueryDocumentSnapshot,
 } from "firebase/firestore";
 
-import { firestore } from "../services/firebase";
+import { firestore } from "../lib/firebase";
 
 // Import the new AIProvider system
-import { AIProviderFactory } from "./openai";
+import { AIProviderFactory } from "../lib/openai";
 
 // Types
 interface BookQuery {
