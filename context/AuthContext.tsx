@@ -12,7 +12,8 @@ import {
 } from "firebase/auth";
 import { doc, setDoc, getDoc, serverTimestamp } from "firebase/firestore";
 
-import { auth, firestore } from "../lib/firebase";
+import { auth, firestore } from "@/lib/firebase";
+import { FIREBASE_COLLECTIONS, MESSAGES } from "@/lib/constants";
 
 interface AuthContextProps {
   user: FirebaseUser | null;
@@ -40,58 +41,49 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [userData, setUserData] = useState<any | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Listen for authentication state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
       setUser(currentUser);
-
       if (currentUser) {
-        // Fetch additional user data from Firestore
         try {
           const userDoc = await getDoc(
-            doc(firestore, "users", currentUser.uid),
+            doc(firestore, FIREBASE_COLLECTIONS.USERS, currentUser.uid),
           );
-
           if (userDoc.exists()) {
             setUserData(userDoc.data());
           } else {
-            // Create user document if it doesn't exist
-            await setDoc(doc(firestore, "users", currentUser.uid), {
-              email: currentUser.email,
-              displayName: currentUser.displayName,
-              photoURL: currentUser.photoURL,
-              createdAt: serverTimestamp(),
-            });
+            await setDoc(
+              doc(firestore, FIREBASE_COLLECTIONS.USERS, currentUser.uid),
+              {
+                email: currentUser.email,
+                displayName: currentUser.displayName,
+                photoURL: currentUser.photoURL,
+                createdAt: serverTimestamp(),
+              },
+            );
             setUserData({
               email: currentUser.email,
               displayName: currentUser.displayName,
               photoURL: currentUser.photoURL,
             });
           }
-        } catch (error) {
-          console.error("Error fetching user data:", error);
-        }
+        } catch {}
       } else {
         setUserData(null);
       }
-
       setIsLoading(false);
     });
-
     return () => unsubscribe();
   }, []);
 
-  // Sign in with email and password
   const signIn = async (email: string, password: string) => {
     try {
       await signInWithEmailAndPassword(auth, email, password);
     } catch (error) {
-      console.error("Error signing in:", error);
       throw error;
     }
   };
 
-  // Sign up with email and password
   const signUp = async (
     email: string,
     password: string,
@@ -103,81 +95,74 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         email,
         password,
       );
-
       await updateProfile(result.user, { displayName });
-
-      // Create user document in Firestore
-      await setDoc(doc(firestore, "users", result.user.uid), {
-        email,
-        displayName,
-        createdAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error("Error signing up:", error);
+      await setDoc(
+        doc(firestore, FIREBASE_COLLECTIONS.USERS, result.user.uid),
+        {
+          email,
+          displayName,
+          createdAt: serverTimestamp(),
+        },
+      );
+    } catch (error: any) {
+      if (error.code === "auth/email-already-in-use") {
+        throw new Error(MESSAGES.ERRORS.AUTH.EMAIL_IN_USE);
+      } else if (error.code === "auth/weak-password") {
+        throw new Error(MESSAGES.ERRORS.AUTH.WEAK_PASSWORD);
+      }
       throw error;
     }
   };
 
-  // Sign in with Google
   const signInWithGoogle = async () => {
     try {
       const provider = new GoogleAuthProvider();
       const result = await signInWithPopup(auth, provider);
-
-      // Check if it's a new user
-      const userDoc = await getDoc(doc(firestore, "users", result.user.uid));
-
+      const userDoc = await getDoc(
+        doc(firestore, FIREBASE_COLLECTIONS.USERS, result.user.uid),
+      );
       if (!userDoc.exists()) {
-        // Create user document for new Google sign-in
-        await setDoc(doc(firestore, "users", result.user.uid), {
-          email: result.user.email,
-          displayName: result.user.displayName,
-          photoURL: result.user.photoURL,
-          createdAt: serverTimestamp(),
-        });
+        await setDoc(
+          doc(firestore, FIREBASE_COLLECTIONS.USERS, result.user.uid),
+          {
+            email: result.user.email,
+            displayName: result.user.displayName,
+            photoURL: result.user.photoURL,
+            createdAt: serverTimestamp(),
+          },
+        );
       }
     } catch (error) {
-      console.error("Error signing in with Google:", error);
       throw error;
     }
   };
 
-  // Sign out
   const signOut = async () => {
     try {
       await firebaseSignOut(auth);
     } catch (error) {
-      console.error("Error signing out:", error);
       throw error;
     }
   };
 
-  // Reset password
   const resetPassword = async (email: string) => {
     try {
       await sendPasswordResetEmail(auth, email);
     } catch (error) {
-      console.error("Error sending password reset email:", error);
       throw error;
     }
   };
 
-  // Update user profile
   const updateUserProfile = async (displayName: string, photoURL?: string) => {
     try {
-      if (!user) throw new Error("No user is signed in");
-
+      if (!user) throw new Error(MESSAGES.ERRORS.AUTH.REQUIRED);
       const updates: { displayName: string; photoURL?: string } = {
         displayName,
       };
-
       if (photoURL) updates.photoURL = photoURL;
-
       await updateProfile(user, updates);
-
-      // Update user data in Firestore
       await setDoc(
-        doc(firestore, "users", user.uid),
+        doc(firestore, FIREBASE_COLLECTIONS.USERS, user.uid),
         {
           displayName,
           ...(photoURL && { photoURL }),
@@ -185,15 +170,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         },
         { merge: true },
       );
-
-      // Update local user data
       setUserData((prev: any) => ({
         ...prev,
         displayName,
         ...(photoURL && { photoURL }),
       }));
     } catch (error) {
-      console.error("Error updating profile:", error);
       throw error;
     }
   };

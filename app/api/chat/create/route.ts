@@ -6,7 +6,7 @@ import { getAIBookRecommendations } from "@/services/bookService";
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, options, userId } = await request.json();
+    const { message, options = {}, userId } = await request.json();
 
     if (!message) {
       return NextResponse.json(
@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
     // Create a new chat document
     const chatRef = await addDoc(collection(db, "chats"), {
       title: message.length > 30 ? `${message.substring(0, 30)}...` : message,
-      userId: userId,
+      userId: userId || null, // Handle guest users gracefully
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
+      searchOptions: options, // Store the search options for this chat
     });
 
     // Add the first message to the chat
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
         content: message,
         sender: "user",
         timestamp: serverTimestamp(),
+        options: options,
       },
     );
 
@@ -56,12 +58,13 @@ export async function POST(request: NextRequest) {
       chatId: chatRef.id,
       message: assistantMessage,
       recommendations: recommendations,
+      messageId: assistantMessageRef.id,
     });
   } catch (error) {
     console.error("Error creating chat:", error);
 
     return NextResponse.json(
-      { error: "Failed to create chat" },
+      { error: "Failed to create chat", details: error.message },
       { status: 500 },
     );
   }

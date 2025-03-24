@@ -89,7 +89,7 @@ export const GithubIcon: React.FC<IconSvgProps> = ({
   );
 };
 
-export const MoonFilledIcon = ({
+export const MoonFilledIcon: React.FC<IconSvgProps> = ({
   size = 24,
   width,
   height,
@@ -111,7 +111,7 @@ export const MoonFilledIcon = ({
   </svg>
 );
 
-export const SunFilledIcon = ({
+export const SunFilledIcon: React.FC<IconSvgProps> = ({
   size = 24,
   width,
   height,
@@ -133,7 +133,7 @@ export const SunFilledIcon = ({
   </svg>
 );
 
-export const HeartFilledIcon = ({
+export const HeartFilledIcon: React.FC<IconSvgProps> = ({
   size = 24,
   width,
   height,

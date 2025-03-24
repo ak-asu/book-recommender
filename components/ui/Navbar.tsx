@@ -24,7 +24,7 @@ import {
 import { Avatar } from "@heroui/avatar";
 
 import { useAuth } from "@/hooks/useAuth"; // You'll need to create this context
-import { siteConfig } from "@/config/site";
+import { siteConfig } from "@/lib/site";
 import { ThemeSwitch } from "@/components/ui/theme-switch";
 import { Logo } from "@/components/icons";
 

@@ -12,7 +12,7 @@ import { getAIBookRecommendations } from "@/services/bookService";
 
 export async function POST(request: NextRequest) {
   try {
-    const { chatId, message, userId } = await request.json();
+    const { chatId, message, userId, options = {} } = await request.json();
 
     if (!chatId || !message) {
       return NextResponse.json(
@@ -28,13 +28,15 @@ export async function POST(request: NextRequest) {
         content: message,
         sender: "user",
         timestamp: serverTimestamp(),
+        options: options, // Store any search options the user selected
       },
     );
 
     // Get AI response with recommendations
     const recommendations = await getAIBookRecommendations(message, {
       userId,
-      chatId, // Pass chatId to potentially use chat history for context
+      chatId,
+      ...options, // Pass any additional options like genre, length, mood
     });
 
     // Create assistant response message
@@ -48,23 +50,27 @@ export async function POST(request: NextRequest) {
         sender: "assistant",
         timestamp: serverTimestamp(),
         recommendations: recommendations,
+        messageId: assistantMessageRef.id, // Store message ID for future reference
       },
     );
 
     // Update chat's updatedAt timestamp
     await updateDoc(doc(db, "chats", chatId), {
       updatedAt: serverTimestamp(),
+      lastMessage:
+        message.length > 50 ? `${message.substring(0, 50)}...` : message,
     });
 
     return NextResponse.json({
       message: assistantMessage,
       recommendations: recommendations,
+      messageId: assistantMessageRef.id,
     });
   } catch (error) {
     console.error("Error sending message:", error);
 
     return NextResponse.json(
-      { error: "Failed to send message" },
+      { error: "Failed to send message", details: error.message },
       { status: 500 },
     );
   }

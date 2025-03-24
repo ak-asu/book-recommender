@@ -1,8 +1,3 @@
-/**
- * Application-wide constants
- */
-
-// API endpoints and limits
 export const API = {
   OPENAI: {
     MODEL: "gpt-4",
@@ -15,7 +10,6 @@ export const API = {
   },
 };
 
-// Firebase collection names
 export const FIREBASE_COLLECTIONS = {
   USERS: "users",
   BOOKS: "books",
@@ -28,7 +22,6 @@ export const FIREBASE_COLLECTIONS = {
   FEEDBACK: "feedback",
 };
 
-// Search and recommendation defaults
 export const SEARCH = {
   DEFAULT_OPTIONS: {
     genres: [],
@@ -41,7 +34,6 @@ export const SEARCH = {
   RECOMMENDATION_COUNT: 6,
 };
 
-// User interface settings
 export const UI = {
   ANIMATION_DURATION_MS: 300,
   TOAST_DURATION_MS: 5000,
@@ -52,7 +44,6 @@ export const UI = {
   },
 };
 
-// Book-related constants
 export const BOOK = {
   GENRES: [
     "Fiction",
@@ -106,7 +97,6 @@ export const BOOK = {
   },
 };
 
-// Message templates
 export const MESSAGES = {
   ERRORS: {
     GENERAL: "Something went wrong. Please try again.",
@@ -159,7 +149,6 @@ export const MESSAGES = {
   },
 };
 
-// Local storage keys
 export const STORAGE_KEYS = {
   THEME: "book-recommender-theme",
   USER: "book-recommender-user",
@@ -168,7 +157,6 @@ export const STORAGE_KEYS = {
   GUEST_BOOKMARKS: "book-recommender-guest-bookmarks",
 };
 
-// Routes
 export const ROUTES = {
   HOME: "/",
   LOGIN: "/login",
@@ -178,6 +166,4 @@ export const ROUTES = {
   BOOK_DETAILS: "/books",
   CHAT: "/chat",
   ABOUT: "/about",
-  BOOKMARKS: "/bookmarks",
-  RESET_PASSWORD: "/reset-password",
 };
