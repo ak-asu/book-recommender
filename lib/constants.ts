@@ -166,6 +166,71 @@ export const STORAGE_KEYS = {
   AUTH_TOKEN: "book-recommender-auth-token",
   SEARCH_HISTORY: "book-recommender-search-history",
   GUEST_BOOKMARKS: "book-recommender-guest-bookmarks",
+  CONVERSATION: "bookRecommenderConversation",
+  CHAT_SESSION_PREFIX: "bookRecommenderChat_",
+  CHAT_SESSIONS: "bookRecommenderSessions",
+};
+
+export const DEFAULT_VALUES = {
+  USER_PREFERENCES: {
+    favoriteGenres: [],
+    darkMode: false,
+    notificationsEnabled: true,
+  },
+  EXPORT_FORMATS: ["json", "txt", "pdf"] as const,
+};
+
+export const ACTION_TYPES = {
+  USER: {
+    REGISTER: "user/register",
+    LOGIN: "user/login",
+    GOOGLE_LOGIN: "user/googleLogin",
+    LOGOUT: "user/logout",
+    UPDATE_PREFERENCES: "user/updatePreferences",
+    RESET_PASSWORD: "user/resetPassword",
+    UPDATE_PROFILE: "user/updateProfile",
+  },
+  SEARCH: {
+    EXPORT: "search/export",
+    SHARE: "search/share",
+    CLEAR: "search/clear",
+    NAVIGATE: "search/navigate",
+  },
+  CHAT: {
+    SEND_MESSAGE: "chat/sendMessage",
+    REGENERATE_RESPONSE: "chat/regenerateResponse",
+    LOAD_SESSIONS: "chat/loadSessions",
+    LOAD_MESSAGES: "chat/loadMessages",
+    EXPORT: "chat/export",
+    SHARE: "chat/share",
+  },
+  BOOK: {
+    FETCH_POPULAR: "books/fetchPopular",
+    SEARCH: "books/search",
+    FETCH_DETAIL: "books/fetchDetail",
+    FETCH_SIMILAR: "books/fetchSimilar",
+    BOOKMARK: "books/bookmark",
+    REMOVE_BOOKMARK: "books/removeBookmark",
+    SUBMIT_REVIEW: "books/submitReview",
+    FETCH_REVIEWS: "books/fetchReviews",
+    REGENERATE: "books/regenerate",
+    PROVIDE_FEEDBACK: "books/provideFeedback",
+    FETCH_USER_BOOKMARKS: "books/fetchUserBookmarks",
+  },
+  // New common slice for unified conversation handling
+  CONVERSATION: {
+    ADD_MESSAGE: "conversation/addMessage",
+    EXPORT: "conversation/export",
+    SHARE: "conversation/share",
+    CLEAR: "conversation/clear",
+  },
+};
+
+export const MESSAGE_TYPES = {
+  QUERY: "query",
+  RESPONSE: "response",
+  ERROR: "error",
+  RESULT: "result",
 };
 
 export const ROUTES = {

@@ -3,8 +3,9 @@ import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "./store";
 
 import { SearchHistoryItem, ConversationItem } from "@/types/search";
-import { SearchOptions } from "@/types/book";
-import { miscUtils } from "@/lib/utils";
+import { SearchOptions } from "@/types/search";
+import { miscUtils, storageUtils, exportUtils } from "@/lib/utils";
+import { ACTION_TYPES, MESSAGE_TYPES } from "@/lib/constants";
 
 interface SearchState {
   query: string;
@@ -28,17 +29,8 @@ const initialState: SearchState = {
   exportFormat: "json",
 };
 
-const saveConversationToLocalStorage = (conversation: ConversationItem[]) => {
-  try {
-    localStorage.setItem(
-      "bookRecommenderConversation",
-      JSON.stringify(conversation),
-    );
-  } catch {}
-};
-
 export const exportConversation = createAsyncThunk(
-  "search/export",
+  ACTION_TYPES.SEARCH.EXPORT,
   async (format: "json" | "txt" | "pdf", { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
@@ -46,42 +38,19 @@ export const exportConversation = createAsyncThunk(
       if (conversation.length === 0) {
         throw new Error("No conversation to export");
       }
-      let content = "";
-      let filename = `book-recommendations-${new Date().toISOString().split("T")[0]}`;
-      switch (format) {
-        case "json":
-          content = JSON.stringify(conversation, null, 2);
-          filename += ".json";
-          break;
-        case "txt":
-          content = conversation
-            .map((item) => {
-              return `[${new Date(item.timestamp).toLocaleString()}] ${item.type === "query" ? "You" : "BookRecommender"}: ${item.content}`;
-            })
-            .join("\n\n");
-          filename += ".txt";
-          break;
-        case "pdf":
-          // This would typically be handled by a library like jsPDF
-          // For simplicity, we'll just return a flag for the component to handle
-          return { format, conversation, filename: filename + ".pdf" };
-        default:
-          throw new Error(`Unsupported format: ${format}`);
-      }
-      // For non-PDF formats, create and trigger download
-      const blob = new Blob([content], {
-        type: format === "json" ? "application/json" : "text/plain",
-      });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement("a");
-      link.href = url;
-      link.download = filename;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      // Clean up
-      URL.revokeObjectURL(url);
-      return { success: true, format };
+      const formatTextConversation = (data: ConversationItem[]): string => {
+        return data
+          .map((item) => {
+            return `[${new Date(item.timestamp).toLocaleString()}] ${item.type === MESSAGE_TYPES.QUERY ? "You" : "BookRecommender"}: ${item.content}`;
+          })
+          .join("\n\n");
+      };
+      return await exportUtils.exportData(
+        conversation,
+        format,
+        "book-recommendations",
+        formatTextConversation,
+      );
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -89,7 +58,7 @@ export const exportConversation = createAsyncThunk(
 );
 
 export const shareConversation = createAsyncThunk(
-  "search/share",
+  ACTION_TYPES.SEARCH.SHARE,
   async (_, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
@@ -97,25 +66,11 @@ export const shareConversation = createAsyncThunk(
       if (conversation.length === 0) {
         throw new Error("No conversation to share");
       }
-      const title = "Book Recommendations";
-      const text = "Check out these book recommendations!";
-      const url = window.location.href;
-      if (navigator.share) {
-        await navigator.share({
-          title,
-          text,
-          url,
-        });
-        return { success: true, method: "navigator.share" };
-      }
-      // Fallback to clipboard
-      const shareText = `${title}\n\n${conversation
-        .map((item) => {
-          return `${item.type === "query" ? "Q" : "A"}: ${item.content}`;
-        })
-        .join("\n\n")}\n\nGenerated via: ${url}`;
-      await navigator.clipboard.writeText(shareText);
-      return { success: true, method: "clipboard" };
+      return await exportUtils.shareData(
+        conversation,
+        "Book Recommendations",
+        "Check out these book recommendations!",
+      );
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -147,14 +102,14 @@ const searchSlice = createSlice({
       });
       state.conversation.push({
         id,
-        type: "query",
+        type: MESSAGE_TYPES.QUERY,
         content: query,
         options,
         timestamp,
       });
       state.historyIndex = state.history.length - 1;
       // Save for guest users
-      saveConversationToLocalStorage(state.conversation);
+      storageUtils.saveConversation(state.conversation);
     },
     addResultToConversation: (state, action: PayloadAction<string>) => {
       const content = action.payload;
@@ -162,12 +117,12 @@ const searchSlice = createSlice({
       const timestamp = Date.now();
       state.conversation.push({
         id,
-        type: "result",
+        type: MESSAGE_TYPES.RESULT,
         content,
         timestamp,
       });
       // Save for guest users
-      saveConversationToLocalStorage(state.conversation);
+      storageUtils.saveConversation(state.conversation);
     },
     clearHistory: (state) => {
       state.history = [];
@@ -195,21 +150,18 @@ const searchSlice = createSlice({
     },
     restoreConversation: (state) => {
       try {
-        const storedConversation = localStorage.getItem(
-          "bookRecommenderConversation",
-        );
-        if (storedConversation) {
-          state.conversation = JSON.parse(storedConversation);
+        const storedConversation = storageUtils.getConversation();
+        if (storedConversation.length > 0) {
+          state.conversation = storedConversation;
           // Rebuild history from conversation
           state.history = state.conversation
-            .filter((item) => item.type === "query")
+            .filter((item) => item.type === MESSAGE_TYPES.QUERY)
             .map((item) => ({
               id: item.id,
               query: item.content,
               options: item.options || {},
               timestamp: item.timestamp,
             }));
-
           state.historyIndex = state.history.length - 1;
         }
       } catch {}

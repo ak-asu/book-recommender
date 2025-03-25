@@ -11,7 +11,8 @@ import { RootState } from "./store";
 
 import { Message, MessageType } from "@/types/chat";
 import { firestore } from "@/lib/firebase";
-import { miscUtils } from "@/lib/utils";
+import { miscUtils, storageUtils } from "@/lib/utils";
+import { ACTION_TYPES } from "@/lib/constants";
 
 interface ChatState {
   messages: Message[];
@@ -36,37 +37,8 @@ const initialState: ChatState = {
   isTyping: false,
 };
 
-const saveMessagesToLocalStorage = (sessionId: string, messages: Message[]) => {
-  try {
-    localStorage.setItem(
-      `bookRecommenderChat_${sessionId}`,
-      JSON.stringify(messages),
-    );
-    const sessions = JSON.parse(
-      localStorage.getItem("bookRecommenderSessions") || "[]",
-    );
-    const sessionIndex = sessions.findIndex((s: any) => s.id === sessionId);
-    const sessionInfo = {
-      id: sessionId,
-      title:
-        messages.length > 0 && messages[0].type === MessageType.QUERY
-          ? messages[0].content.substring(0, 30) +
-            (messages[0].content.length > 30 ? "..." : "")
-          : "New Chat",
-      lastActive: Date.now(),
-      messageCount: messages.length,
-    };
-    if (sessionIndex >= 0) {
-      sessions[sessionIndex] = sessionInfo;
-    } else {
-      sessions.push(sessionInfo);
-    }
-    localStorage.setItem("bookRecommenderSessions", JSON.stringify(sessions));
-  } catch {}
-};
-
 export const sendMessage = createAsyncThunk(
-  "chat/sendMessage",
+  ACTION_TYPES.CHAT.SEND_MESSAGE,
   async (
     {
       content,
@@ -137,10 +109,8 @@ export const sendMessage = createAsyncThunk(
           }),
         ]);
       } else {
-        const existingMessages = JSON.parse(
-          localStorage.getItem(`bookRecommenderChat_${chatSessionId}`) || "[]",
-        );
-        saveMessagesToLocalStorage(chatSessionId, [
+        const existingMessages = storageUtils.getChatMessages(chatSessionId);
+        storageUtils.saveChatMessages(chatSessionId, [
           ...existingMessages,
           userMessage,
           systemMessage,
@@ -167,7 +137,7 @@ export const sendMessage = createAsyncThunk(
 );
 
 export const regenerateResponse = createAsyncThunk(
-  "chat/regenerateResponse",
+  ACTION_TYPES.CHAT.REGENERATE_RESPONSE,
   async (
     { sessionId }: { sessionId: string },
     { getState, dispatch, rejectWithValue },
@@ -229,10 +199,8 @@ export const regenerateResponse = createAsyncThunk(
           timestamp: new Date(systemMessage.timestamp),
         });
       } else {
-        const existingMessages = JSON.parse(
-          localStorage.getItem(`bookRecommenderChat_${sessionId}`) || "[]",
-        );
-        saveMessagesToLocalStorage(sessionId, [
+        const existingMessages = storageUtils.getChatMessages(sessionId);
+        storageUtils.saveChatMessages(sessionId, [
           ...existingMessages,
           systemMessage,
         ]);
@@ -255,7 +223,7 @@ export const regenerateResponse = createAsyncThunk(
 );
 
 export const loadChatSessions = createAsyncThunk(
-  "chat/loadSessions",
+  ACTION_TYPES.CHAT.LOAD_SESSIONS,
   async (_, { getState, rejectWithValue }) => {
     try {
       const state = getState() as RootState;
@@ -276,9 +244,7 @@ export const loadChatSessions = createAsyncThunk(
         }));
         return sessions;
       } else {
-        const sessionsString = localStorage.getItem("bookRecommenderSessions");
-        if (!sessionsString) return [];
-        return JSON.parse(sessionsString);
+        return storageUtils.getChatSessions();
       }
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -287,7 +253,7 @@ export const loadChatSessions = createAsyncThunk(
 );
 
 export const loadChatMessages = createAsyncThunk(
-  "chat/loadMessages",
+  ACTION_TYPES.CHAT.LOAD_MESSAGES,
   async (sessionId: string, { getState, rejectWithValue }) => {
     try {
       if (!sessionId) {
@@ -313,14 +279,8 @@ export const loadChatMessages = createAsyncThunk(
         })) as Message[];
         return { sessionId, messages };
       } else {
-        const messagesString = localStorage.getItem(
-          `bookRecommenderChat_${sessionId}`,
-        );
-        if (!messagesString) return { sessionId, messages: [] };
-        return {
-          sessionId,
-          messages: JSON.parse(messagesString) as Message[],
-        };
+        const messages = storageUtils.getChatMessages(sessionId);
+        return { sessionId, messages };
       }
     } catch (error) {
       return rejectWithValue((error as Error).message);

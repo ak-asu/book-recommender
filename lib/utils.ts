@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { User as FirebaseUser } from "firebase/auth";
 
 import {
   BOOK,
@@ -7,8 +8,12 @@ import {
   STORAGE_KEYS,
   SEARCH,
   AI_PROMPTS,
+  DEFAULT_VALUES,
 } from "./constants";
 
+import { ConversationItem } from "@/types/search";
+import { Message } from "@/types/chat";
+import { User, UserPreferences } from "@/types/user";
 import { BookRecommendation } from "@/types/book";
 import { SearchOptions } from "@/types/search";
 
@@ -138,6 +143,74 @@ export const storageUtils = {
   },
   getSearchHistory: (): any[] => {
     return storageUtils.getItem<any[]>(STORAGE_KEYS.SEARCH_HISTORY, []);
+  },
+  saveConversation: (conversation: ConversationItem[]): void => {
+    try {
+      localStorage.setItem(
+        STORAGE_KEYS.CONVERSATION,
+        JSON.stringify(conversation),
+      );
+    } catch {}
+  },
+  getConversation: (): ConversationItem[] => {
+    try {
+      const storedConversation = localStorage.getItem(
+        STORAGE_KEYS.CONVERSATION,
+      );
+      return storedConversation ? JSON.parse(storedConversation) : [];
+    } catch {
+      return [];
+    }
+  },
+  saveChatMessages: (sessionId: string, messages: Message[]): void => {
+    try {
+      localStorage.setItem(
+        `${STORAGE_KEYS.CHAT_SESSION_PREFIX}${sessionId}`,
+        JSON.stringify(messages),
+      );
+      const sessions = miscUtils.safeJsonParse<any[]>(
+        localStorage.getItem(STORAGE_KEYS.CHAT_SESSIONS) || "[]",
+        [],
+      );
+      const sessionIndex = sessions.findIndex((s: any) => s.id === sessionId);
+      const sessionInfo = {
+        id: sessionId,
+        title:
+          messages.length > 0 && messages[0].type === "query"
+            ? messages[0].content.substring(0, 30) +
+              (messages[0].content.length > 30 ? "..." : "")
+            : "New Chat",
+        lastActive: Date.now(),
+        messageCount: messages.length,
+      };
+      if (sessionIndex >= 0) {
+        sessions[sessionIndex] = sessionInfo;
+      } else {
+        sessions.push(sessionInfo);
+      }
+      localStorage.setItem(
+        STORAGE_KEYS.CHAT_SESSIONS,
+        JSON.stringify(sessions),
+      );
+    } catch {}
+  },
+  getChatMessages: (sessionId: string): Message[] => {
+    try {
+      const messagesString = localStorage.getItem(
+        `${STORAGE_KEYS.CHAT_SESSION_PREFIX}${sessionId}`,
+      );
+      return messagesString ? JSON.parse(messagesString) : [];
+    } catch {
+      return [];
+    }
+  },
+  getChatSessions: (): any[] => {
+    try {
+      const sessionsString = localStorage.getItem(STORAGE_KEYS.CHAT_SESSIONS);
+      return sessionsString ? JSON.parse(sessionsString) : [];
+    } catch {
+      return [];
+    }
   },
 };
 
@@ -360,6 +433,157 @@ export const aiUtils = {
   },
   getSimilarBooksPrompt: (book: any): string => {
     return AI_PROMPTS.SIMILAR_BOOKS(book);
+  },
+};
+
+export const firebaseUtils = {
+  formatUser: (
+    firebaseUser: FirebaseUser,
+    preferences: UserPreferences = DEFAULT_VALUES.USER_PREFERENCES,
+  ): User => {
+    return {
+      uid: firebaseUser.uid,
+      email: firebaseUser.email || "",
+      displayName: firebaseUser.displayName,
+      photoURL: firebaseUser.photoURL,
+      isAnonymous: firebaseUser.isAnonymous,
+      createdAt: firebaseUser.metadata.creationTime
+        ? new Date(firebaseUser.metadata.creationTime).getTime()
+        : undefined,
+      lastLogin: firebaseUser.metadata.lastSignInTime
+        ? new Date(firebaseUser.metadata.lastSignInTime).getTime()
+        : undefined,
+      preferences,
+    };
+  },
+};
+
+export const exportUtils = {
+  exportData: async (
+    data: any,
+    format: "json" | "txt" | "pdf",
+    fileNamePrefix: string,
+    textFormatter?: (data: any) => string,
+  ): Promise<{ success: boolean; format: string }> => {
+    try {
+      let content = "";
+      let filename = `${fileNamePrefix}-${new Date().toISOString().split("T")[0]}`;
+      switch (format) {
+        case "json":
+          content = JSON.stringify(data, null, 2);
+          filename += ".json";
+          break;
+        case "txt":
+          content = textFormatter ? textFormatter(data) : JSON.stringify(data);
+          filename += ".txt";
+          break;
+        case "pdf":
+          // Return for component to handle PDF generation
+          return { format, success: true };
+        default:
+          throw new Error(`Unsupported format: ${format}`);
+      }
+      // For non-PDF formats, create and trigger download
+      const blob = new Blob([content], {
+        type: format === "json" ? "application/json" : "text/plain",
+      });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      // Clean up
+      URL.revokeObjectURL(url);
+      return { success: true, format };
+    } catch {
+      return { success: false, format };
+    }
+  },
+  shareData: async (
+    data: any,
+    title: string,
+    text: string,
+  ): Promise<{ success: boolean; method: string }> => {
+    try {
+      const url = window.location.href;
+      if (navigator.share) {
+        await navigator.share({
+          title,
+          text,
+          url,
+        });
+        return { success: true, method: "navigator.share" };
+      }
+      // Fallback to clipboard
+      let shareText = `${title}\n\n`;
+      if (Array.isArray(data)) {
+        shareText += data
+          .map((item) => {
+            if (item.type === "query" || item.type === "result") {
+              return `${item.type === "query" ? "Q" : "A"}: ${item.content}`;
+            }
+            return item.content || JSON.stringify(item);
+          })
+          .join("\n\n");
+      } else {
+        shareText += JSON.stringify(data);
+      }
+      shareText += `\n\nGenerated via: ${url}`;
+      await navigator.clipboard.writeText(shareText);
+      return { success: true, method: "clipboard" };
+    } catch {
+      return { success: false, method: "error" };
+    }
+  },
+};
+
+export const reduxUtils = {
+  // Common loading/error state pattern for async thunks
+  createAsyncThunkReducers: (
+    builder: any,
+    thunk: any,
+    customHandler?: (state: any, action: any) => void,
+  ) => {
+    builder
+      .addCase(thunk.pending, (state: any) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(thunk.fulfilled, (state: any, action: any) => {
+        state.loading = false;
+        if (customHandler) {
+          customHandler(state, action);
+        }
+      })
+      .addCase(thunk.rejected, (state: any, action: any) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      });
+  },
+  // Helper for creating initial state with common fields
+  createInitialState: <T>(stateProps: T) => {
+    return {
+      loading: false,
+      error: null,
+      success: null,
+      ...stateProps,
+    };
+  },
+  // Normalize book data for consistent storage
+  normalizeBook: (book: any) => {
+    if (!book) return null;
+    return {
+      id: book.id,
+      title: book.title || "Unknown",
+      author: book.author || "Unknown",
+      description: book.description || "",
+      genres: Array.isArray(book.genres) ? book.genres : [],
+      imageUrl: book.imageUrl || "/images/default-book-cover.jpg",
+      // Add other essential fields
+      ...book,
+    };
   },
 };
 

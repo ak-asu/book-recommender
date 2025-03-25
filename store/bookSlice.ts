@@ -15,7 +15,10 @@ import {
 import { RootState } from "./store";
 
 import { firestore } from "@/lib/firebase";
-import { Book, Review, SearchOptions } from "@/types/book";
+import { Book, Review } from "@/types/book";
+import { SearchOptions } from "@/types/search";
+import { ACTION_TYPES, FIREBASE_COLLECTIONS } from "@/lib/constants";
+import { reduxUtils } from "@/lib/utils";
 
 interface BookState {
   books: Book[];
@@ -33,7 +36,7 @@ interface BookState {
   reviews: Review[];
 }
 
-const initialState: BookState = {
+const initialState: BookState = reduxUtils.createInitialState({
   books: [],
   recommendedBooks: [],
   similarBooks: [],
@@ -43,22 +46,20 @@ const initialState: BookState = {
   bookmarks: [],
   savedForLater: [],
   favorites: [],
-  loading: false,
-  error: null,
   currentBookDetail: null,
   reviews: [],
-};
+});
 
 export const fetchPopularBooks = createAsyncThunk(
-  "books/fetchPopular",
+  ACTION_TYPES.BOOK.FETCH_POPULAR,
   async (_, { rejectWithValue }) => {
     try {
-      const booksRef = collection(firestore, "books");
+      const booksRef = collection(firestore, FIREBASE_COLLECTIONS.BOOKS);
       const q = query(booksRef, orderBy("ranking", "asc"), limit(20));
       const querySnapshot = await getDocs(q);
       const books: Book[] = [];
       querySnapshot.forEach((doc) => {
-        books.push({ id: doc.id, ...doc.data() } as Book);
+        books.push(reduxUtils.normalizeBook({ id: doc.id, ...doc.data() }));
       });
       return books;
     } catch (error) {
@@ -67,8 +68,62 @@ export const fetchPopularBooks = createAsyncThunk(
   },
 );
 
+export const fetchUserBookmarks = createAsyncThunk(
+  ACTION_TYPES.BOOK.FETCH_USER_BOOKMARKS,
+  async (_, { rejectWithValue, getState }) => {
+    try {
+      const state = getState() as RootState;
+      const userId = state.user?.user?.uid;
+      if (!userId) {
+        throw new Error("User not authenticated");
+      }
+      const bookmarksPromise = getDocs(
+        collection(firestore, "users", userId, "bookmarks"),
+      );
+      const favoritesPromise = getDocs(
+        collection(firestore, "users", userId, "favorites"),
+      );
+      const savedForLaterPromise = getDocs(
+        collection(firestore, "users", userId, "savedForLater"),
+      );
+      const [bookmarksSnapshot, favoritesSnapshot, savedForLaterSnapshot] =
+        await Promise.all([
+          bookmarksPromise,
+          favoritesPromise,
+          savedForLaterPromise,
+        ]);
+      const bookmarkIds = bookmarksSnapshot.docs.map(
+        (doc) => doc.data().bookId,
+      );
+      const favoriteIds = favoritesSnapshot.docs.map(
+        (doc) => doc.data().bookId,
+      );
+      const savedForLaterIds = savedForLaterSnapshot.docs.map(
+        (doc) => doc.data().bookId,
+      );
+      const allBookIds = Array.from(
+        new Set([...bookmarkIds, ...favoriteIds, ...savedForLaterIds]),
+      );
+      const booksRef = collection(firestore, "books");
+      const q = query(booksRef, where("id", "in", allBookIds));
+      const booksSnapshot = await getDocs(q);
+      const books: { [id: string]: any } = {};
+      booksSnapshot.forEach((doc) => {
+        books[doc.id] = reduxUtils.normalizeBook({ id: doc.id, ...doc.data() });
+      });
+      return {
+        bookmarks: bookmarkIds.map((id) => books[id]).filter(Boolean),
+        favorites: favoriteIds.map((id) => books[id]).filter(Boolean),
+        savedForLater: savedForLaterIds.map((id) => books[id]).filter(Boolean),
+      };
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
 export const searchBooks = createAsyncThunk(
-  "books/search",
+  ACTION_TYPES.BOOK.SEARCH,
   async (
     { query, options }: { query: string; options: SearchOptions },
     { rejectWithValue },
@@ -93,7 +148,7 @@ export const searchBooks = createAsyncThunk(
 );
 
 export const fetchBookDetail = createAsyncThunk(
-  "books/fetchDetail",
+  ACTION_TYPES.BOOK.FETCH_DETAIL,
   async (bookId: string, { rejectWithValue }) => {
     try {
       const docSnap = await getDocs(
@@ -110,7 +165,7 @@ export const fetchBookDetail = createAsyncThunk(
 );
 
 export const fetchSimilarBooks = createAsyncThunk(
-  "books/fetchSimilar",
+  ACTION_TYPES.BOOK.FETCH_SIMILAR,
   async (bookId: string, { rejectWithValue }) => {
     try {
       const response = await fetch(`/api/similar-books?bookId=${bookId}`);
@@ -126,7 +181,7 @@ export const fetchSimilarBooks = createAsyncThunk(
 );
 
 export const bookmarkBook = createAsyncThunk(
-  "books/bookmark",
+  ACTION_TYPES.BOOK.BOOKMARK,
   async (
     { book, type }: { book: Book; type: "bookmark" | "favorite" | "later" },
     { rejectWithValue, getState },
@@ -161,7 +216,7 @@ export const bookmarkBook = createAsyncThunk(
 );
 
 export const removeBookmarkAsync = createAsyncThunk(
-  "books/removeBookmark",
+  ACTION_TYPES.BOOK.REMOVE_BOOKMARK,
   async (
     {
       bookId,
@@ -202,7 +257,7 @@ export const removeBookmarkAsync = createAsyncThunk(
 );
 
 export const submitReview = createAsyncThunk(
-  "books/submitReview",
+  ACTION_TYPES.BOOK.SUBMIT_REVIEW,
   async (
     {
       bookId,
@@ -243,7 +298,7 @@ export const submitReview = createAsyncThunk(
 );
 
 export const fetchBookReviews = createAsyncThunk(
-  "books/fetchReviews",
+  ACTION_TYPES.BOOK.FETCH_REVIEWS,
   async (bookId: string, { rejectWithValue }) => {
     try {
       const reviewsRef = collection(firestore, "reviews");
@@ -265,7 +320,7 @@ export const fetchBookReviews = createAsyncThunk(
 );
 
 export const regenerateRecommendations = createAsyncThunk(
-  "books/regenerate",
+  ACTION_TYPES.BOOK.REGENERATE,
   async (
     { query, options }: { query: string; options: SearchOptions },
     { rejectWithValue },
@@ -290,7 +345,7 @@ export const regenerateRecommendations = createAsyncThunk(
 );
 
 export const provideFeedbackAsync = createAsyncThunk(
-  "books/provideFeedback",
+  ACTION_TYPES.BOOK.PROVIDE_FEEDBACK,
   async (
     { bookId, liked }: { bookId: string; liked: boolean },
     { rejectWithValue, getState },
@@ -361,14 +416,35 @@ const bookSlice = createSlice({
       state.reviews = [];
     },
     provideFeedback: (
-      _state,
-      _action: PayloadAction<{ bookId: string; liked: boolean }>,
+      state,
+      action: PayloadAction<{ bookId: string; liked: boolean }>,
     ) => {
-      // Local state update for immediate UI feedback
-      // The actual API call is handled by the provideFeedbackAsync thunk
+      // This is now a direct action without the async part
+      // It can be used for immediate UI feedback before provideFeedbackAsync completes
+      const { bookId } = action.payload;
+      const book = state.recommendedBooks.find((b) => b.id === bookId);
+      if (book) {
+        // Optional: Update any UI feedback state here if needed
+      }
     },
   },
   extraReducers: (builder) => {
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      fetchPopularBooks,
+      (state, action) => {
+        state.books = action.payload;
+      },
+    );
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      fetchUserBookmarks,
+      (state, action) => {
+        state.bookmarks = action.payload.bookmarks;
+        state.favorites = action.payload.favorites;
+        state.savedForLater = action.payload.savedForLater;
+      },
+    );
     builder
       .addCase(fetchPopularBooks.pending, (state) => {
         state.loading = true;

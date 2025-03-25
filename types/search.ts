@@ -1,3 +1,5 @@
+import { MESSAGE_TYPES } from "@/lib/constants";
+
 export interface SearchQuery {
   text: string;
   genre?: string;
@@ -30,7 +32,7 @@ export interface SearchHistoryItem {
 
 export interface ConversationItem {
   id: string;
-  type: "query" | "result";
+  type: (typeof MESSAGE_TYPES)[keyof typeof MESSAGE_TYPES];
   content: string;
   options?: SearchOptions;
   timestamp: number;
