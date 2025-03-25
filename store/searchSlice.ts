@@ -1,22 +1,10 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 import { RootState } from "./store";
-import { SearchOptions } from "./bookSlice";
 
-export interface SearchHistoryItem {
-  id: string;
-  query: string;
-  options: SearchOptions;
-  timestamp: number;
-}
-
-export interface ConversationItem {
-  id: string;
-  type: "query" | "result";
-  content: string;
-  options?: SearchOptions;
-  timestamp: number;
-}
+import { SearchHistoryItem, ConversationItem } from "@/types/search";
+import { SearchOptions } from "@/types/book";
+import { miscUtils } from "@/lib/utils";
 
 interface SearchState {
   query: string;
@@ -39,8 +27,6 @@ const initialState: SearchState = {
   error: null,
   exportFormat: "json",
 };
-
-const generateId = () => Math.random().toString(36).substring(2, 11);
 
 const saveConversationToLocalStorage = (conversation: ConversationItem[]) => {
   try {
@@ -151,7 +137,7 @@ const searchSlice = createSlice({
       action: PayloadAction<{ query: string; options: SearchOptions }>,
     ) => {
       const { query, options } = action.payload;
-      const id = generateId();
+      const id = miscUtils.generateRandomId();
       const timestamp = Date.now();
       state.history.push({
         id,
@@ -172,7 +158,7 @@ const searchSlice = createSlice({
     },
     addResultToConversation: (state, action: PayloadAction<string>) => {
       const content = action.payload;
-      const id = generateId();
+      const id = miscUtils.generateRandomId();
       const timestamp = Date.now();
       state.conversation.push({
         id,

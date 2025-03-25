@@ -23,25 +23,7 @@ import {
 import { RootState } from "./store";
 
 import { auth, firestore } from "@/lib/firebase";
-
-export interface UserPreferences {
-  favoriteGenres: string[];
-  preferredLength?: "short" | "medium" | "long";
-  preferredMoods?: string[];
-  darkMode: boolean;
-  notificationsEnabled: boolean;
-}
-
-export interface User {
-  uid: string;
-  email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  isAnonymous: boolean;
-  createdAt?: number;
-  lastLogin?: number;
-  preferences: UserPreferences;
-}
+import { User, UserPreferences } from "@/types/user";
 
 interface LoginCredentials {
   email: string;

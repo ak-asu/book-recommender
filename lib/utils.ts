@@ -1,7 +1,16 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-import { BOOK, FIREBASE_COLLECTIONS, STORAGE_KEYS } from "./constants";
+import {
+  BOOK,
+  FIREBASE_COLLECTIONS,
+  STORAGE_KEYS,
+  SEARCH,
+  AI_PROMPTS,
+} from "./constants";
+
+import { BookRecommendation } from "@/types/book";
+import { SearchOptions } from "@/types/search";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -199,6 +208,11 @@ export const bookUtils = {
   ): string => {
     return stringUtils.truncate(description, maxLength);
   },
+  getBookLengthCategory: (pageCount: number): "short" | "medium" | "long" => {
+    if (pageCount < 300) return "short";
+    if (pageCount < 500) return "medium";
+    return "long";
+  },
 };
 
 export const firebasePathUtils = {
@@ -216,6 +230,27 @@ export const firebasePathUtils = {
   },
   chatMessages: (chatId: string): string => {
     return `${FIREBASE_COLLECTIONS.CHATS}/${chatId}/${FIREBASE_COLLECTIONS.MESSAGES}`;
+  },
+  userHistory: (userId: string): string => {
+    return `${FIREBASE_COLLECTIONS.USERS}/${userId}/searchHistory`;
+  },
+  bookmarkDoc: (userId: string, bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.BOOKMARKS}/${userId}_${bookId}`;
+  },
+  favoriteDoc: (userId: string, bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.FAVORITES}/${userId}_${bookId}`;
+  },
+  savedForLaterDoc: (userId: string, bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.SAVED_FOR_LATER}/${userId}_${bookId}`;
+  },
+  userFeedbackDoc: (userId: string, bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.USER_FEEDBACK}/${userId}_${bookId}`;
+  },
+  readingProgressDoc: (userId: string, bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.USER_READING_PROGRESS}/${userId}_${bookId}`;
+  },
+  bookRecommendationsDoc: (bookId: string): string => {
+    return `${FIREBASE_COLLECTIONS.BOOK_RECOMMENDATIONS}/${bookId}`;
   },
 };
 
@@ -254,3 +289,82 @@ export const miscUtils = {
     }
   },
 };
+
+export const cacheUtils = {
+  createCacheKey: (query: string, options: SearchOptions): string => {
+    const normalizedQuery = query.toLowerCase().trim();
+    const optionsStr = JSON.stringify(options);
+    // Create a deterministic key that's safe for Firestore document IDs
+    return (
+      miscUtils.generateRandomId(8) +
+      "-" +
+      Buffer.from(`${normalizedQuery}-${optionsStr}`)
+        .toString("base64")
+        .replace(/\//g, "_")
+        .replace(/\+/g, "-")
+        .replace(/=/g, "")
+        .substring(0, 40)
+    );
+  },
+  isCacheExpired: (
+    timestamp: Date | null,
+    cacheDuration: number = SEARCH.CACHE_DURATION_MS,
+  ): boolean => {
+    if (!timestamp) return true;
+    const now = new Date();
+    const cacheAge = now.getTime() - timestamp.getTime();
+    return cacheAge > cacheDuration;
+  },
+};
+
+export const aiUtils = {
+  buildPrompt: (query: any, userPreferences?: any): string => {
+    return AI_PROMPTS.BOOK_RECOMMENDATION(
+      query.text,
+      query.genre,
+      query.length,
+      query.mood,
+      userPreferences,
+    );
+  },
+  parseRecommendations: (content: string): BookRecommendation[] => {
+    try {
+      const jsonMatch = content.match(/\[[\s\S]*\]/);
+      if (!jsonMatch) {
+        return [];
+      }
+      const jsonContent = jsonMatch[0];
+      const recommendations: any[] = JSON.parse(jsonContent);
+      return recommendations.map((book) => ({
+        id: generateBookId(book),
+        title: book.title || "Unknown Title",
+        author: book.author || "Unknown Author",
+        publicationDate: book.publicationDate || "Unknown",
+        rating: typeof book.rating === "number" ? book.rating : 0,
+        reviewCount:
+          typeof book.reviewCount === "number" ? book.reviewCount : 0,
+        description: book.description || "No description available",
+        genres: Array.isArray(book.genres)
+          ? book.genres
+          : [book.genre || "Unknown"],
+        pageCount: typeof book.pageCount === "number" ? book.pageCount : 0,
+        imageUrl:
+          book.imageUrl || book.coverImage || "/images/default-book-cover.jpg",
+        buyLinks: book.buyLinks || {},
+        readLinks: book.readLinks || {},
+        timestamp: new Date().toISOString(),
+      }));
+    } catch {
+      return [];
+    }
+  },
+  getSimilarBooksPrompt: (book: any): string => {
+    return AI_PROMPTS.SIMILAR_BOOKS(book);
+  },
+};
+
+function generateBookId(book: Partial<BookRecommendation>): string {
+  const titleStr = (book.title || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  const authorStr = (book.author || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  return `${titleStr}-${authorStr}-${miscUtils.generateRandomId(6)}`;
+}

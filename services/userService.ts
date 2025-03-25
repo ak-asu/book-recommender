@@ -1,5 +1,6 @@
 import {
   doc,
+  addDoc,
   getDoc,
   setDoc,
   updateDoc,
@@ -13,53 +14,32 @@ import {
   orderBy,
   limit,
   deleteDoc,
-  Timestamp,
 } from "firebase/firestore";
 
-import { firestore } from "../lib/firebase";
-import { Book } from "../store/bookSlice";
-import { UserPreferences } from "../store/userSlice";
-import { FIREBASE_COLLECTIONS } from "../lib/constants";
+import { firestore } from "@/lib/firebase";
+import {
+  FIREBASE_COLLECTIONS,
+  COLLECTION_CONFIG,
+  MESSAGES,
+} from "@/lib/constants";
+import { bookUtils } from "@/lib/utils";
+import { Book } from "@/types/book";
+import {
+  UserPreferences,
+  UserHistory,
+  GenrePreference,
+  UserPreferenceProbabilities,
+  CollectionType,
+} from "@/types/user";
 
-// Types
-interface ReadingProgress {
-  userId: string;
-  bookId: string;
-  progress: number;
-  updatedAt: Timestamp | Date;
-}
-
-interface UserHistory {
-  userId: string;
-  bookId: string;
-  progress?: number;
-  timestamp: Timestamp | Date;
-  action: "view" | "read" | "bookmark" | "favorite" | "feedback";
-}
-
-interface GenrePreference {
-  count: number;
-  likes: number;
-  probability?: number; // likes/count
-}
-
-interface UserPreferenceProbabilities {
-  userId: string;
-  genrePreferences: Record<string, GenrePreference>;
-  lengthPreferences?: Record<string, GenrePreference>;
-  moodPreferences?: Record<string, GenrePreference>;
-  updatedAt: Timestamp | Date;
-}
-
-// Add to user history
 export const addToUserHistory = async (
   userId: string,
   bookId: string,
   action: UserHistory["action"],
   progress?: number,
-) => {
+): Promise<{ success: boolean }> => {
   try {
-    const historyRef = collection(firestore, "userHistory");
+    const historyRef = collection(firestore, FIREBASE_COLLECTIONS.USER_HISTORY);
     await addDoc(historyRef, {
       userId,
       bookId,
@@ -69,372 +49,136 @@ export const addToUserHistory = async (
     });
     return { success: true };
   } catch (error) {
-    console.error("Error adding to user history:", error);
     throw error;
   }
 };
 
-// Add a book to user's bookmarks
-export const addBookmark = async (userId: string, bookId: string) => {
-  try {
-    const userRef = doc(firestore, "users", userId);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      // Create user document if it doesn't exist
-      await setDoc(userRef, {
-        bookmarks: [bookId],
-        createdAt: serverTimestamp(),
-      });
-    } else {
-      // Add bookmark to existing user
-      await updateDoc(userRef, {
-        bookmarks: arrayUnion(bookId),
-      });
-    }
-
-    // Also track this in a separate collection for easier querying
-    const bookmarkRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.BOOKMARKS,
-      `${userId}_${bookId}`,
-    );
-
-    await setDoc(bookmarkRef, {
-      userId,
-      bookId,
-      createdAt: serverTimestamp(),
-    });
-
-    // Add to user history
-    await addToUserHistory(userId, bookId, "bookmark");
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error adding bookmark:", error);
-    throw error;
-  }
-};
-
-// Remove a book from user's bookmarks
-export const removeBookmark = async (userId: string, bookId: string) => {
-  try {
-    // Remove from user's bookmarks array
-    const userRef = doc(firestore, "users", userId);
-
-    await updateDoc(userRef, {
-      bookmarks: arrayRemove(bookId),
-    });
-
-    // Remove from separate bookmarks collection
-    const bookmarkRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.BOOKMARKS,
-      `${userId}_${bookId}`,
-    );
-
-    await deleteDoc(bookmarkRef);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error removing bookmark:", error);
-    throw error;
-  }
-};
-
-// Check if a book is bookmarked by the user
-export const isBookmarked = async (userId: string, bookId: string) => {
-  try {
-    const bookmarkRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.BOOKMARKS,
-      `${userId}_${bookId}`,
-    );
-    const bookmarkDoc = await getDoc(bookmarkRef);
-
-    return bookmarkDoc.exists();
-  } catch (error) {
-    console.error("Error checking bookmark:", error);
-    throw error;
-  }
-};
-
-// Add a book to user's favorites
-export const addToFavorites = async (userId: string, bookId: string) => {
-  try {
-    const userRef = doc(firestore, "users", userId);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      // Create user document if it doesn't exist
-      await setDoc(userRef, {
-        favorites: [bookId],
-        createdAt: serverTimestamp(),
-      });
-    } else {
-      // Add to favorites for existing user
-      await updateDoc(userRef, {
-        favorites: arrayUnion(bookId),
-      });
-    }
-
-    // Track in separate collection
-    const favoriteRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.FAVORITES,
-      `${userId}_${bookId}`,
-    );
-
-    await setDoc(favoriteRef, {
-      userId,
-      bookId,
-      createdAt: serverTimestamp(),
-    });
-
-    // Add to user history
-    await addToUserHistory(userId, bookId, "favorite");
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error adding to favorites:", error);
-    throw error;
-  }
-};
-
-// Remove a book from user's favorites
-export const removeFromFavorites = async (userId: string, bookId: string) => {
-  try {
-    // Remove from user's favorites array
-    const userRef = doc(firestore, "users", userId);
-
-    await updateDoc(userRef, {
-      favorites: arrayRemove(bookId),
-    });
-
-    // Remove from separate favorites collection
-    const favoriteRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.FAVORITES,
-      `${userId}_${bookId}`,
-    );
-
-    await deleteDoc(favoriteRef);
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error removing from favorites:", error);
-    throw error;
-  }
-};
-
-// Check if a book is in user's favorites
-export const isFavorited = async (userId: string, bookId: string) => {
-  try {
-    const favoriteRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.FAVORITES,
-      `${userId}_${bookId}`,
-    );
-    const favoriteDoc = await getDoc(favoriteRef);
-
-    return favoriteDoc.exists();
-  } catch (error) {
-    console.error("Error checking favorite:", error);
-    throw error;
-  }
-};
-
-// Get user's bookmarked books with details
-export const getUserBookmarks = async (
-  userId: string,
-  maxResults = 50,
-): Promise<Book[]> => {
-  try {
-    const q = query(
-      collection(firestore, FIREBASE_COLLECTIONS.BOOKMARKS),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(maxResults),
-    );
-
-    const bookmarksSnapshot = await getDocs(q);
-    const bookIds = bookmarksSnapshot.docs.map((doc) => doc.data().bookId);
-
-    // Get book details for each bookmark
-    const bookDetails = await Promise.all(
-      bookIds.map(async (bookId) => {
-        const bookDoc = await getDoc(
-          doc(firestore, FIREBASE_COLLECTIONS.BOOKS, bookId),
-        );
-
-        if (bookDoc.exists()) {
-          return { id: bookDoc.id, ...bookDoc.data() } as Book;
-        }
-
-        return null;
-      }),
-    );
-
-    // Filter out any null values (books that don't exist)
-    return bookDetails.filter((book): book is Book => book !== null);
-  } catch (error) {
-    console.error("Error fetching user bookmarks:", error);
-    throw error;
-  }
-};
-
-// Get user's favorite books with details
-export const getUserFavorites = async (
-  userId: string,
-  maxResults = 50,
-): Promise<Book[]> => {
-  try {
-    const q = query(
-      collection(firestore, FIREBASE_COLLECTIONS.FAVORITES),
-      where("userId", "==", userId),
-      orderBy("createdAt", "desc"),
-      limit(maxResults),
-    );
-
-    const favoritesSnapshot = await getDocs(q);
-    const bookIds = favoritesSnapshot.docs.map((doc) => doc.data().bookId);
-
-    // Get book details for each favorite
-    const bookDetails = await Promise.all(
-      bookIds.map(async (bookId) => {
-        const bookDoc = await getDoc(
-          doc(firestore, FIREBASE_COLLECTIONS.BOOKS, bookId),
-        );
-
-        if (bookDoc.exists()) {
-          return { id: bookDoc.id, ...bookDoc.data() } as Book;
-        }
-
-        return null;
-      }),
-    );
-
-    // Filter out any null values
-    return bookDetails.filter((book): book is Book => book !== null);
-  } catch (error) {
-    console.error("Error fetching user favorites:", error);
-    throw error;
-  }
-};
-
-// Add item to "saved for later"
-export const addToSavedForLater = async (userId: string, bookId: string) => {
-  try {
-    const userRef = doc(firestore, "users", userId);
-    const userDoc = await getDoc(userRef);
-
-    if (!userDoc.exists()) {
-      // Create user document if it doesn't exist
-      await setDoc(userRef, {
-        savedForLater: [bookId],
-        createdAt: serverTimestamp(),
-      });
-    } else {
-      // Add to saved for later for existing user
-      await updateDoc(userRef, {
-        savedForLater: arrayUnion(bookId),
-      });
-    }
-
-    // Track in separate collection
-    const savedRef = doc(firestore, "savedForLater", `${userId}_${bookId}`);
-
-    await setDoc(savedRef, {
-      userId,
-      bookId,
-      createdAt: serverTimestamp(),
-    });
-
-    return { success: true };
-  } catch (error) {
-    console.error("Error adding to saved for later:", error);
-    throw error;
-  }
-};
-
-// Remove from "saved for later"
-export const removeFromSavedForLater = async (
+export const addToCollection = async (
   userId: string,
   bookId: string,
-) => {
+  collectionType: CollectionType,
+): Promise<{ success: boolean }> => {
   try {
-    // Remove from user's saved for later array
-    const userRef = doc(firestore, "users", userId);
-
-    await updateDoc(userRef, {
-      savedForLater: arrayRemove(bookId),
+    const config = COLLECTION_CONFIG[collectionType];
+    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
+    const userDoc = await getDoc(userRef);
+    if (!userDoc.exists()) {
+      await setDoc(userRef, {
+        [config.userField]: [bookId],
+        createdAt: serverTimestamp(),
+      });
+    } else {
+      await updateDoc(userRef, {
+        [config.userField]: arrayUnion(bookId),
+      });
+    }
+    // Also track this in a separate collection for easier querying
+    const itemRef = doc(
+      firestore,
+      config.collectionName,
+      `${userId}_${bookId}`,
+    );
+    await setDoc(itemRef, {
+      userId,
+      bookId,
+      createdAt: serverTimestamp(),
     });
-
-    // Remove from separate saved for later collection
-    const savedRef = doc(firestore, "savedForLater", `${userId}_${bookId}`);
-
-    await deleteDoc(savedRef);
-
+    // Add to user history if there's a history action defined
+    if (config.historyAction) {
+      await addToUserHistory(userId, bookId, config.historyAction);
+    }
     return { success: true };
   } catch (error) {
-    console.error("Error removing from saved for later:", error);
     throw error;
   }
 };
 
-// Get user's saved for later books with details
-export const getSavedForLaterBooks = async (
+export const removeFromCollection = async (
   userId: string,
+  bookId: string,
+  collectionType: CollectionType,
+): Promise<{ success: boolean }> => {
+  try {
+    const config = COLLECTION_CONFIG[collectionType];
+    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
+    await updateDoc(userRef, {
+      [config.userField]: arrayRemove(bookId),
+    });
+    const itemRef = doc(
+      firestore,
+      config.collectionName,
+      `${userId}_${bookId}`,
+    );
+    await deleteDoc(itemRef);
+    return { success: true };
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const isInCollection = async (
+  userId: string,
+  bookId: string,
+  collectionType: CollectionType,
+): Promise<boolean> => {
+  try {
+    const config = COLLECTION_CONFIG[collectionType];
+    const itemRef = doc(
+      firestore,
+      config.collectionName,
+      `${userId}_${bookId}`,
+    );
+    const itemDoc = await getDoc(itemRef);
+    return itemDoc.exists();
+  } catch {
+    return false;
+  }
+};
+
+export const getUserCollection = async (
+  userId: string,
+  collectionType: CollectionType,
   maxResults = 50,
 ): Promise<Book[]> => {
   try {
+    const config = COLLECTION_CONFIG[collectionType];
     const q = query(
-      collection(firestore, "savedForLater"),
+      collection(firestore, config.collectionName),
       where("userId", "==", userId),
       orderBy("createdAt", "desc"),
       limit(maxResults),
     );
-
-    const savedSnapshot = await getDocs(q);
-    const bookIds = savedSnapshot.docs.map((doc) => doc.data().bookId);
-
-    // Get book details for each saved for later
+    const itemsSnapshot = await getDocs(q);
+    const bookIds = itemsSnapshot.docs.map((doc) => doc.data().bookId);
     const bookDetails = await Promise.all(
       bookIds.map(async (bookId) => {
         const bookDoc = await getDoc(
           doc(firestore, FIREBASE_COLLECTIONS.BOOKS, bookId),
         );
-
         if (bookDoc.exists()) {
           return { id: bookDoc.id, ...bookDoc.data() } as Book;
         }
-
         return null;
       }),
     );
-
-    // Filter out any null values
     return bookDetails.filter((book): book is Book => book !== null);
   } catch (error) {
-    console.error("Error fetching saved for later books:", error);
     throw error;
   }
 };
 
-// Get user's reading history
 export const getUserReadingHistory = async (
   userId: string,
   maxResults = 20,
 ) => {
   try {
     const q = query(
-      collection(firestore, "userHistory"),
+      collection(firestore, FIREBASE_COLLECTIONS.USER_HISTORY),
       where("userId", "==", userId),
       where("action", "==", "read"),
       orderBy("timestamp", "desc"),
       limit(maxResults),
     );
-
     const historySnapshot = await getDocs(q);
     const history = historySnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -442,33 +186,26 @@ export const getUserReadingHistory = async (
       timestamp:
         doc.data().timestamp?.toDate?.() || new Date(doc.data().timestamp),
     }));
-
-    // Get book details for each history item
     const historyWithBooks = await Promise.all(
       history.map(async (item) => {
         const bookDoc = await getDoc(
           doc(firestore, FIREBASE_COLLECTIONS.BOOKS, item.bookId),
         );
-
         if (bookDoc.exists()) {
           return {
             ...item,
             book: { id: bookDoc.id, ...bookDoc.data() } as Book,
           };
         }
-
         return item;
       }),
     );
-
     return historyWithBooks;
   } catch (error) {
-    console.error("Error fetching reading history:", error);
     throw error;
   }
 };
 
-// Update user's reading progress
 export const updateReadingProgress = async (
   userId: string,
   bookId: string,
@@ -477,10 +214,9 @@ export const updateReadingProgress = async (
   try {
     const progressRef = doc(
       firestore,
-      "userReadingProgress",
+      FIREBASE_COLLECTIONS.USER_READING_PROGRESS,
       `${userId}_${bookId}`,
     );
-
     await setDoc(
       progressRef,
       {
@@ -491,18 +227,13 @@ export const updateReadingProgress = async (
       },
       { merge: true },
     );
-
-    // Also add to reading history
     await addToUserHistory(userId, bookId, "read", progress);
-
     return { success: true, progress };
   } catch (error) {
-    console.error("Error updating reading progress:", error);
     throw error;
   }
 };
 
-// Get user's reading progress for a specific book
 export const getReadingProgress = async (
   userId: string,
   bookId: string,
@@ -510,69 +241,55 @@ export const getReadingProgress = async (
   try {
     const progressRef = doc(
       firestore,
-      "userReadingProgress",
+      FIREBASE_COLLECTIONS.USER_READING_PROGRESS,
       `${userId}_${bookId}`,
     );
     const progressDoc = await getDoc(progressRef);
-
     if (progressDoc.exists()) {
       return progressDoc.data().progress;
     }
-
     return 0; // Default progress is 0%
-  } catch (error) {
-    console.error("Error fetching reading progress:", error);
+  } catch {
     return 0;
   }
 };
 
-// Get user's preferences
 export const getUserPreferences = async (
   userId: string,
 ): Promise<UserPreferences | null> => {
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
     const userDoc = await getDoc(userRef);
-
     if (userDoc.exists() && userDoc.data().preferences) {
       return userDoc.data().preferences as UserPreferences;
     }
-
     return null;
   } catch (error) {
-    console.error("Error fetching user preferences:", error);
     throw error;
   }
 };
 
-// Update user's preferences
 export const updateUserPreferences = async (
   userId: string,
   preferences: Partial<UserPreferences>,
 ) => {
   try {
-    const userRef = doc(firestore, "users", userId);
+    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
     const userDoc = await getDoc(userRef);
-
     if (!userDoc.exists()) {
-      throw new Error("User not found");
+      throw new Error(MESSAGES.ERRORS.AUTH.REQUIRED);
     }
-
     const currentPreferences = userDoc.data().preferences || {};
     const updatedPreferences = { ...currentPreferences, ...preferences };
-
     await updateDoc(userRef, {
       preferences: updatedPreferences,
     });
-
     return { success: true, preferences: updatedPreferences };
   } catch (error) {
-    console.error("Error updating user preferences:", error);
     throw error;
   }
 };
 
-// Record user feedback on a recommendation
 export const recordUserFeedback = async (
   userId: string,
   bookId: string,
@@ -580,10 +297,11 @@ export const recordUserFeedback = async (
 ) => {
   try {
     const liked = feedback === "like";
-
-    // Store the feedback
-    const feedbackRef = doc(firestore, "userFeedback", `${userId}_${bookId}`);
-
+    const feedbackRef = doc(
+      firestore,
+      FIREBASE_COLLECTIONS.USER_FEEDBACK,
+      `${userId}_${bookId}`,
+    );
     await setDoc(
       feedbackRef,
       {
@@ -594,31 +312,20 @@ export const recordUserFeedback = async (
       },
       { merge: true },
     );
-
-    // Add to user history
     await addToUserHistory(userId, bookId, "feedback");
-
-    // Update user's preference probabilities based on feedback
     const bookDoc = await getDoc(
       doc(firestore, FIREBASE_COLLECTIONS.BOOKS, bookId),
     );
-
     if (bookDoc.exists()) {
       const book = bookDoc.data();
       const genres = book.genres || [];
-      const length = book.pageCount
-        ? book.pageCount < 300
-          ? "short"
-          : book.pageCount < 500
-            ? "medium"
-            : "long"
-        : undefined;
-
-      // Get current user preferences
-      const userPrefsRef = doc(firestore, "userPreferences", userId);
+      const length = bookUtils.getBookLengthCategory(book.pageCount);
+      const userPrefsRef = doc(
+        firestore,
+        FIREBASE_COLLECTIONS.USER_PREFERENCES,
+        userId,
+      );
       const userPrefsDoc = await getDoc(userPrefsRef);
-
-      // Initialize or update preference probabilities
       const preferenceData: UserPreferenceProbabilities = {
         userId,
         genrePreferences: userPrefsDoc.exists()
@@ -632,57 +339,45 @@ export const recordUserFeedback = async (
           : {},
         updatedAt: serverTimestamp(),
       };
-
-      // Update genre preferences
       genres.forEach((genre: string) => {
         if (!preferenceData.genrePreferences[genre]) {
           preferenceData.genrePreferences[genre] = { count: 0, likes: 0 };
         }
-
         preferenceData.genrePreferences[genre].count += 1;
         if (liked) {
           preferenceData.genrePreferences[genre].likes += 1;
         }
-
-        // Calculate probability
         preferenceData.genrePreferences[genre].probability =
           preferenceData.genrePreferences[genre].likes /
           preferenceData.genrePreferences[genre].count;
       });
-
       // Update length preference if available
       if (length) {
         if (!preferenceData.lengthPreferences[length]) {
           preferenceData.lengthPreferences[length] = { count: 0, likes: 0 };
         }
-
         preferenceData.lengthPreferences[length].count += 1;
         if (liked) {
           preferenceData.lengthPreferences[length].likes += 1;
         }
-
         // Calculate probability
         preferenceData.lengthPreferences[length].probability =
           preferenceData.lengthPreferences[length].likes /
           preferenceData.lengthPreferences[length].count;
       }
-
-      // Save updated preferences
       await setDoc(userPrefsRef, preferenceData, { merge: true });
-
       // Also update the user's preferences in the user document
       // for easier access in the frontend
-      const userRef = doc(firestore, "users", userId);
+      const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
       const userData = await getDoc(userRef);
-
       if (userData.exists()) {
         const currentPreferences = userData.data().preferences || {};
         const favoriteGenres = currentPreferences.favoriteGenres || [];
-
         // If the feedback is positive, ensure these genres are in the user's favorites
         if (liked) {
-          const updatedGenres = [...new Set([...favoriteGenres, ...genres])];
-
+          const updatedGenres = Array.from(
+            new Set([...favoriteGenres, ...genres]),
+          );
           // Only update if there are changes
           if (
             JSON.stringify(updatedGenres) !== JSON.stringify(favoriteGenres)
@@ -696,20 +391,20 @@ export const recordUserFeedback = async (
         }
       }
     }
-
     return { success: true };
   } catch (error) {
-    console.error("Error recording user feedback:", error);
     throw error;
   }
 };
 
-// Get user recommendation statistics
 export const getUserRecommendationStats = async (userId: string) => {
   try {
-    const userPrefRef = doc(firestore, "userPreferences", userId);
+    const userPrefRef = doc(
+      firestore,
+      FIREBASE_COLLECTIONS.USER_PREFERENCES,
+      userId,
+    );
     const userPrefDoc = await getDoc(userPrefRef);
-
     if (!userPrefDoc.exists()) {
       return {
         totalRecommendations: 0,
@@ -718,20 +413,17 @@ export const getUserRecommendationStats = async (userId: string) => {
         preferredLength: null,
       };
     }
-
     const prefData = userPrefDoc.data();
     const genrePreferences = prefData.genrePreferences || {};
     const lengthPreferences = prefData.lengthPreferences || {};
-
-    // Calculate totals
     let totalRecommendations = 0;
     let likedRecommendations = 0;
-
-    Object.values(genrePreferences).forEach((pref: GenrePreference) => {
-      totalRecommendations += pref.count;
-      likedRecommendations += pref.likes;
-    });
-
+    Object.values(genrePreferences as Record<string, GenrePreference>).forEach(
+      (pref) => {
+        totalRecommendations += pref.count;
+        likedRecommendations += pref.likes;
+      },
+    );
     // Get top genres (by probability with minimum threshold of interactions)
     const topGenres = Object.entries(genrePreferences)
       .filter(([_, pref]) => pref.count >= 3) // Minimum threshold for reliable data
@@ -742,11 +434,9 @@ export const getUserRecommendationStats = async (userId: string) => {
       }))
       .sort((a, b) => b.probability - a.probability)
       .slice(0, 5);
-
     // Determine preferred length
     let preferredLength: string | null = null;
     let highestLengthProb = 0;
-
     Object.entries(lengthPreferences).forEach(([length, pref]) => {
       if (pref.count >= 2) {
         const probability = pref.likes / pref.count;
@@ -756,7 +446,6 @@ export const getUserRecommendationStats = async (userId: string) => {
         }
       }
     });
-
     return {
       totalRecommendations,
       likedRecommendations,
@@ -768,7 +457,6 @@ export const getUserRecommendationStats = async (userId: string) => {
       preferredLength,
     };
   } catch (error) {
-    console.error("Error getting user recommendation stats:", error);
     throw error;
   }
 };

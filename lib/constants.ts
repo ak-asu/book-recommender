@@ -20,6 +20,15 @@ export const FIREBASE_COLLECTIONS = {
   PREFERENCES: "preferences",
   RECOMMENDATIONS: "recommendations",
   FEEDBACK: "feedback",
+  USER_HISTORY: "userHistory",
+  USER_READING_PROGRESS: "userReadingProgress",
+  USER_PREFERENCES: "userPreferences",
+  USER_FEEDBACK: "userFeedback",
+  SEARCH_CACHE: "searchCache",
+  SEARCH_STATS: "searchStats",
+  BOOK_RECOMMENDATIONS: "bookRecommendations",
+  REVIEWS: "reviews",
+  SAVED_FOR_LATER: "savedForLater",
 };
 
 export const SEARCH = {
@@ -32,6 +41,8 @@ export const SEARCH = {
   POPULAR_BOOKS_LIMIT: 12,
   MIN_SEARCH_LENGTH: 3,
   RECOMMENDATION_COUNT: 6,
+  PAGINATION_SIZE: 10,
+  CACHE_DURATION_MS: 24 * 60 * 60 * 1000, // 24 hours
 };
 
 export const UI = {
@@ -166,4 +177,70 @@ export const ROUTES = {
   BOOK_DETAILS: "/books",
   CHAT: "/chat",
   ABOUT: "/about",
+};
+
+export const COLLECTION_CONFIG = {
+  bookmarks: {
+    userField: "bookmarks",
+    collectionName: FIREBASE_COLLECTIONS.BOOKMARKS,
+    historyAction: "bookmark",
+  },
+  favorites: {
+    userField: "favorites",
+    collectionName: FIREBASE_COLLECTIONS.FAVORITES,
+    historyAction: "favorite",
+  },
+  savedForLater: {
+    userField: "savedForLater",
+    collectionName: FIREBASE_COLLECTIONS.SAVED_FOR_LATER,
+  },
+};
+
+export const AI_PROMPTS = {
+  SYSTEM_ROLE:
+    "You are a knowledgeable literary assistant that recommends books. Provide recommendations as structured JSON data.",
+  BOOK_RECOMMENDATION: (
+    text: string,
+    genre?: string,
+    length?: string,
+    mood?: string,
+    userPreferences?: any,
+  ): string => {
+    let prompt = `Recommend books that match the following criteria: ${text}`;
+    if (genre) prompt += ` in the ${genre} genre`;
+    if (length) prompt += ` that are ${length} in length`;
+    if (mood) prompt += ` with a ${mood} mood`;
+    if (userPreferences) {
+      prompt += `. Consider that the user has shown preference for `;
+      if (userPreferences.favoriteGenres?.length) {
+        prompt += `genres like ${userPreferences.favoriteGenres.join(", ")}, `;
+      }
+      if (userPreferences.preferredLength) {
+        prompt += `${userPreferences.preferredLength} length books, `;
+      }
+      if (userPreferences.preferredMoods?.length) {
+        prompt += `moods like ${userPreferences.preferredMoods.join(", ")}`;
+      }
+    }
+    prompt += `. For each book, provide the following information in valid JSON format: 
+      title, author, publicationDate, rating (1-5), reviewCount, description, genres (array), pageCount, 
+      imageUrl (a URL if available), and where to purchase or read the book as buyLinks and readLinks objects. 
+      Return at least 5 books if possible. Format your response as a JSON array of book objects.`;
+    return prompt;
+  },
+  SIMILAR_BOOKS: (book: any): string => {
+    return `Please recommend books similar to "${book.title}" by ${book.author}. 
+    This book is in the ${book.genres?.join(", ") || "unknown"} genre(s).
+    Brief description: ${book.description || "Not available"}
+    
+    Please suggest 6 similar books that readers might enjoy, providing the following details for each:
+    - Title
+    - Author
+    - Publication date
+    - Genre(s)
+    - Brief description of the book
+    - Average rating (1-5 scale)
+    
+    Format your response as a JSON array of objects with these fields.`;
+  },
 };

@@ -8,29 +8,10 @@ import {
 } from "firebase/firestore";
 
 import { RootState } from "./store";
-import { Book } from "./bookSlice";
 
+import { Message, MessageType } from "@/types/chat";
 import { firestore } from "@/lib/firebase";
-
-export enum MessageType {
-  QUERY = "query",
-  RESPONSE = "response",
-  SYSTEM = "system",
-  ERROR = "error",
-}
-
-export interface Message {
-  id: string;
-  type: MessageType;
-  content: string;
-  timestamp: number;
-  sender: "user" | "system";
-  metadata?: {
-    books?: Book[];
-    queryOptions?: Record<string, any>;
-    regenerate?: boolean;
-  };
-}
+import { miscUtils } from "@/lib/utils";
 
 interface ChatState {
   messages: Message[];
@@ -54,8 +35,6 @@ const initialState: ChatState = {
   error: null,
   isTyping: false,
 };
-
-const generateId = () => Math.random().toString(36).substring(2, 11);
 
 const saveMessagesToLocalStorage = (sessionId: string, messages: Message[]) => {
   try {
@@ -99,9 +78,9 @@ export const sendMessage = createAsyncThunk(
     try {
       const state = getState() as RootState;
       const userId = state.user?.user?.uid;
-      const chatSessionId = sessionId || generateId();
+      const chatSessionId = sessionId || miscUtils.generateRandomId();
       const userMessage: Message = {
-        id: generateId(),
+        id: miscUtils.generateRandomId(),
         type: MessageType.QUERY,
         content,
         timestamp: Date.now(),
@@ -129,7 +108,7 @@ export const sendMessage = createAsyncThunk(
       }
       const data = await response.json();
       const systemMessage: Message = {
-        id: generateId(),
+        id: miscUtils.generateRandomId(),
         type: MessageType.RESPONSE,
         content: data.response,
         timestamp: Date.now(),
@@ -173,7 +152,7 @@ export const sendMessage = createAsyncThunk(
       };
     } catch (error) {
       const errorMessage: Message = {
-        id: generateId(),
+        id: miscUtils.generateRandomId(),
         type: MessageType.ERROR,
         content: (error as Error).message || "Something went wrong",
         timestamp: Date.now(),
@@ -226,7 +205,7 @@ export const regenerateResponse = createAsyncThunk(
       }
       const data = await response.json();
       const systemMessage: Message = {
-        id: generateId(),
+        id: miscUtils.generateRandomId(),
         type: MessageType.RESPONSE,
         content: data.response,
         timestamp: Date.now(),
@@ -261,7 +240,7 @@ export const regenerateResponse = createAsyncThunk(
       return systemMessage;
     } catch (error) {
       const errorMessage: Message = {
-        id: generateId(),
+        id: miscUtils.generateRandomId(),
         type: MessageType.ERROR,
         content: (error as Error).message || "Something went wrong",
         timestamp: Date.now(),

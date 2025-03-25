@@ -15,42 +15,7 @@ import {
 import { RootState } from "./store";
 
 import { firestore } from "@/lib/firebase";
-
-export interface Book {
-  id: string;
-  title: string;
-  author: string;
-  publicationDate: string;
-  description: string;
-  imageUrl: string;
-  rating: number;
-  reviewCount: number;
-  genres: string[];
-  pageCount: number;
-  series?: string;
-  volume?: number;
-  buyLinks?: { [provider: string]: string };
-  readLinks?: { [provider: string]: string };
-  ranking?: number;
-}
-
-export interface SearchOptions {
-  genre?: string;
-  length?: "short" | "medium" | "long";
-  mood?: string;
-  timeFrame?: string;
-  maxResults?: number;
-}
-
-export interface Review {
-  id: string;
-  bookId: string;
-  userId: string;
-  username: string;
-  rating: number;
-  comment: string;
-  createdAt: number;
-}
+import { Book, Review, SearchOptions } from "@/types/book";
 
 interface BookState {
   books: Book[];
