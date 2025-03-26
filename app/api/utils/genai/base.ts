@@ -1,4 +1,4 @@
-import { BookRecommendation } from "@/types/book";
+import { BookRecommendation, Book } from "@/types/book";
 
 export interface AIProviderOptions {
   apiKey?: string;
@@ -8,8 +8,20 @@ export interface AIProviderOptions {
 }
 
 export interface RecommendationResponse {
-  recommendations: BookRecommendation[];
-  raw?: any;
+  recommendations: Book[];
+  raw?: any; // The raw response from the API
+}
+
+export interface AIChatMessage {
+  content: string;
+  role: "user" | "assistant" | "system";
+}
+
+export interface ChatSession {
+  id: string;
+  messages: AIChatMessage[];
+  createdAt: number;
+  updatedAt: number;
 }
 
 export abstract class AIProvider {

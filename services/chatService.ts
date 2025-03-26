@@ -1,93 +1,79 @@
-import {
-  collection,
-  addDoc,
-  serverTimestamp,
-  updateDoc,
-  doc,
-  getDoc,
-  setDoc,
-  arrayUnion,
-} from "firebase/firestore";
+import { recommendationApi, chatApi } from "./apiService";
 
-import { firestore } from "@/lib/firebase";
 import { BookRecommendation } from "@/types/book";
 import { UserPreferences } from "@/types/user";
-import { API, FIREBASE_COLLECTIONS, MESSAGES } from "@/lib/constants";
-import { aiUtils } from "@/lib/utils";
+import { MESSAGES } from "@/lib/constants";
 import { SearchQuery } from "@/types/search";
-import { AIProviderFactory } from "@/lib/genai";
+import { ErrorCategory, logError } from "@/lib/errorHandler";
+import { withErrorHandling } from "@/services/errorService";
 
-export const getBookRecommendations = async (
-  searchQuery: SearchQuery,
-  userPreferences?: UserPreferences,
-  userId?: string,
-): Promise<BookRecommendation[]> => {
-  try {
-    const prompt = aiUtils.buildPrompt(searchQuery, userPreferences);
-    const aiProvider = AIProviderFactory.getProvider("openai", {
-      model: API.OPENAI.MODEL,
-      temperature: API.OPENAI.TEMPERATURE,
-      maxTokens: API.OPENAI.MAX_TOKENS,
-    });
-    const response = await aiProvider.getRecommendations(prompt);
-    if (!response || !response.recommendations) {
-      throw new Error(MESSAGES.ERRORS.RECOMMENDATIONS.FAILED);
-    }
-    await saveSearchHistory(searchQuery, response.recommendations, userId);
-    return response.recommendations;
-  } catch {
-    throw new Error(MESSAGES.ERRORS.RECOMMENDATIONS.FAILED);
-  }
-};
-
-export const saveSearchHistory = async (
-  searchQuery: SearchQuery,
-  recommendations: BookRecommendation[],
-  userId?: string,
-): Promise<void> => {
-  if (!userId) return; // Don't save for non-authenticated users
-  try {
-    const historyRef = collection(
-      firestore,
-      FIREBASE_COLLECTIONS.USERS,
-      userId,
-      "searchHistory",
-    );
-    await addDoc(historyRef, {
-      query: searchQuery.text,
-      options: {
+export const getBookRecommendations = withErrorHandling(
+  async (
+    searchQuery: SearchQuery,
+    userPreferences?: UserPreferences,
+  ): Promise<BookRecommendation[]> => {
+    try {
+      const response = await recommendationApi.searchBooks(searchQuery.text, {
         genre: searchQuery.genre,
         length: searchQuery.length,
         mood: searchQuery.mood,
         timeFrame: searchQuery.timeFrame,
-      },
-      recommendations: recommendations.map((book) => ({
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        imageUrl: book.imageUrl,
-      })),
-      timestamp: serverTimestamp(),
-    });
-    for (const book of recommendations) {
-      const bookRef = doc(firestore, FIREBASE_COLLECTIONS.BOOKS, book.id);
-      const bookDoc = await getDoc(bookRef);
-      if (!bookDoc.exists()) {
-        await setDoc(bookRef, {
-          ...book,
-          createdAt: serverTimestamp(),
-          source: "openai",
-          searchQueries: [searchQuery.text],
-        });
-      } else {
-        await updateDoc(bookRef, {
-          searchQueries: arrayUnion(searchQuery.text),
-          updatedAt: serverTimestamp(),
-        });
+        userPreferences,
+      });
+      if (!response.books) {
+        throw new Error(MESSAGES.ERRORS.RECOMMENDATIONS.FAILED);
       }
+      return response.books;
+    } catch (error) {
+      logError(error, "getBookRecommendations");
+      return fallbackRecommendations();
     }
-  } catch {}
-};
+  },
+  ErrorCategory.API,
+);
+
+export const getChatRecommendations = withErrorHandling(
+  async (message: string, sessionId?: string, options?: any): Promise<any> => {
+    return await chatApi.sendMessage(message, sessionId, options);
+  },
+  ErrorCategory.API,
+);
+
+export const getChatSessions = withErrorHandling(async () => {
+  return await chatApi.getSessionList();
+}, ErrorCategory.API);
+
+export const getChatSessionDetails = withErrorHandling(
+  async (sessionId: string) => {
+    return await chatApi.getSession(sessionId);
+  },
+  ErrorCategory.API,
+);
+
+export const deleteChatSession = withErrorHandling(
+  async (sessionId: string) => {
+    return await chatApi.deleteSession(sessionId);
+  },
+  ErrorCategory.API,
+);
+
+export const exportChatSession = withErrorHandling(
+  async (sessionId?: string, format: "json" | "text" = "json") => {
+    return await chatApi.exportChat(sessionId, format);
+  },
+  ErrorCategory.API,
+);
+
+export const shareChatSession = withErrorHandling(async (sessionId: string) => {
+  return await chatApi.shareChat(sessionId);
+}, ErrorCategory.API);
+
+export const getSharedChatSession = withErrorHandling(
+  async (shareId: string) => {
+    return await chatApi.getSharedChat(shareId);
+  },
+  ErrorCategory.API,
+);
 
 export const fallbackRecommendations = (): BookRecommendation[] => {
   return [

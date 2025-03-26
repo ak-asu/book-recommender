@@ -1,48 +1,263 @@
+// API and service configurations
 export const API = {
   OPENAI: {
-    MODEL: "gpt-4",
-    MAX_TOKENS: 2048,
+    MODEL: "gpt-3.5-turbo-1106", // Or 'gpt-4' for better quality if budget allows
     TEMPERATURE: 0.7,
+    MAX_TOKENS: 1000,
   },
   REQUESTS: {
+    TIMEOUT_MS: 30000, // 30 seconds
     RETRY_ATTEMPTS: 3,
-    TIMEOUT_MS: 30000,
+    BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL || "",
   },
 };
 
+// Firebase collection names
 export const FIREBASE_COLLECTIONS = {
   USERS: "users",
   BOOKS: "books",
-  CHATS: "chats",
-  MESSAGES: "messages",
+  REVIEWS: "reviews",
+  USER_HISTORY: "userHistory",
+  USER_FEEDBACK: "userFeedback",
+  USER_PREFERENCES: "userPreferences",
   BOOKMARKS: "bookmarks",
   FAVORITES: "favorites",
-  PREFERENCES: "preferences",
-  RECOMMENDATIONS: "recommendations",
-  FEEDBACK: "feedback",
-  USER_HISTORY: "userHistory",
-  USER_READING_PROGRESS: "userReadingProgress",
-  USER_PREFERENCES: "userPreferences",
-  USER_FEEDBACK: "userFeedback",
+  SAVED_FOR_LATER: "savedForLater",
+  CHAT_SESSIONS: "chatSessions",
+  CHAT_MESSAGES: "chatMessages",
+  ANONYMOUS_CHATS: "anonymousChats",
+  SHARED_CHATS: "sharedChats",
   SEARCH_CACHE: "searchCache",
   SEARCH_STATS: "searchStats",
   BOOK_RECOMMENDATIONS: "bookRecommendations",
-  REVIEWS: "reviews",
-  SAVED_FOR_LATER: "savedForLater",
 };
 
+// Search configuration
 export const SEARCH = {
-  DEFAULT_OPTIONS: {
-    genres: [],
-    mood: "",
-    length: "",
-  },
   MAX_RESULTS: 20,
   POPULAR_BOOKS_LIMIT: 12,
-  MIN_SEARCH_LENGTH: 3,
   RECOMMENDATION_COUNT: 6,
-  PAGINATION_SIZE: 10,
+  MIN_SEARCH_LENGTH: 3,
   CACHE_DURATION_MS: 24 * 60 * 60 * 1000, // 24 hours
+};
+
+// Collection configurations for user collections (bookmarks, favorites, etc.)
+export const COLLECTION_CONFIG = {
+  bookmarks: {
+    collectionName: FIREBASE_COLLECTIONS.BOOKMARKS,
+    userField: "bookmarks",
+    historyAction: "bookmark",
+  },
+  favorites: {
+    collectionName: FIREBASE_COLLECTIONS.FAVORITES,
+    userField: "favorites",
+    historyAction: "favorite",
+  },
+  savedForLater: {
+    collectionName: FIREBASE_COLLECTIONS.SAVED_FOR_LATER,
+    userField: "savedForLater",
+    historyAction: "savedForLater",
+  },
+};
+
+// Default values
+export const DEFAULT_VALUES = {
+  USER_PREFERENCES: {
+    favoriteGenres: [],
+    darkMode: false,
+    notificationsEnabled: true,
+  },
+};
+
+// Chat/message types
+export enum MessageType {
+  USER = "user",
+  ASSISTANT = "assistant",
+}
+
+// Standard error and success messages
+export const MESSAGES = {
+  ERRORS: {
+    AUTH: {
+      EMAIL_IN_USE:
+        "This email is already registered. Please try logging in or use a different email.",
+      WEAK_PASSWORD:
+        "Please use a stronger password. Passwords should be at least 6 characters long.",
+      INVALID_CREDENTIALS: "Invalid email or password. Please try again.",
+      UNAUTHORIZED: "You must be logged in to perform this action.",
+      EXPIRED_SESSION: "Your session has expired. Please log in again.",
+    },
+    BOOK: {
+      NOT_FOUND: "The requested book could not be found.",
+      REVIEW_EXISTS: "You have already reviewed this book.",
+      INVALID_RATING: "Rating must be between 1 and 5 stars.",
+    },
+    RECOMMENDATIONS: {
+      FAILED: "Failed to get book recommendations.",
+    },
+    SEARCH: {
+      EMPTY: "Please enter a search term.",
+      TOO_SHORT: "Search query is too short. Please use at least 3 characters.",
+      NO_RESULTS: "No books found matching your search criteria.",
+    },
+    API: {
+      GENERAL:
+        "An error occurred while processing your request. Please try again later.",
+      RATE_LIMIT:
+        "You've made too many requests. Please try again in a few minutes.",
+      NOT_FOUND: "The requested resource could not be found.",
+    },
+  },
+  SUCCESS: {
+    AUTH: {
+      REGISTER: "Account successfully created. Welcome!",
+      LOGIN: "Successfully logged in.",
+      LOGOUT: "Successfully logged out.",
+      PASSWORD_RESET: "Password reset email sent. Please check your inbox.",
+    },
+    BOOK: {
+      REVIEW_ADDED: "Your review has been successfully added.",
+      ADDED_TO_COLLECTION: "Book added to your collection.",
+      REMOVED_FROM_COLLECTION: "Book removed from your collection.",
+    },
+    USER: {
+      PREFERENCES_UPDATED: "Your preferences have been updated.",
+      FEEDBACK_RECORDED: "Your feedback has been recorded. Thank you!",
+    },
+  },
+};
+
+// AI Prompt templates
+export const AI_PROMPTS = {
+  BOOK_RECOMMENDATION: (
+    query: string,
+    genre?: string,
+    length?: string,
+    mood?: string,
+    userPreferences?: any,
+  ) => {
+    let prompt = `Please recommend books based on the following query: "${query}".\n`;
+    if (genre) {
+      prompt += `Focus on the ${genre} genre.\n`;
+    }
+    if (length) {
+      prompt += `I prefer ${length} books.\n`;
+    }
+    if (mood) {
+      prompt += `I'm looking for books with a ${mood} mood or atmosphere.\n`;
+    }
+    if (userPreferences) {
+      if (userPreferences.favoriteGenres?.length > 0) {
+        prompt += `I generally enjoy these genres: ${userPreferences.favoriteGenres.join(", ")}.\n`;
+      }
+      if (userPreferences.preferredLength) {
+        prompt += `I typically prefer ${userPreferences.preferredLength} books.\n`;
+      }
+      if (userPreferences.preferredMoods?.length > 0) {
+        prompt += `I often enjoy books with these moods: ${userPreferences.preferredMoods.join(", ")}.\n`;
+      }
+    }
+    prompt += `\nPlease provide 5-8 book recommendations with the following details for each:
+    - Title
+    - Author
+    - Publication date
+    - Genre(s)
+    - Brief description (100-150 words)
+    - Average rating (1-5 scale)
+    - Page count (approximate)
+    
+    Format your response as a JSON array of objects with these fields.`;
+    return prompt;
+  },
+  CHAT_PROMPT: (
+    message: string,
+    context: string[] = [],
+    userPreferences?: any,
+  ) => {
+    let prompt = "";
+    // Add conversation context if available
+    if (context.length > 0) {
+      prompt += `Previous conversation:\n${context.join("\n")}\n\n`;
+    }
+    prompt += `User: ${message}\n\n`;
+    // Add user preferences if available
+    if (userPreferences) {
+      prompt +=
+        "Consider the following user preferences in your recommendations:\n";
+      if (userPreferences.favoriteGenres?.length > 0) {
+        prompt += `- Favorite genres: ${userPreferences.favoriteGenres.join(", ")}\n`;
+      }
+      if (userPreferences.preferredLength) {
+        prompt += `- Preferred book length: ${userPreferences.preferredLength}\n`;
+      }
+      if (userPreferences.preferredMoods?.length > 0) {
+        prompt += `- Preferred moods: ${userPreferences.preferredMoods.join(", ")}\n`;
+      }
+      prompt += "\n";
+    }
+    prompt += `Assistant: `;
+    return prompt;
+  },
+  SIMILAR_BOOKS: (book: any) => {
+    return `Please recommend books similar to "${book.title}" by ${book.author}. 
+    This book is in the ${book.genres?.join(", ") || "unknown"} genre(s).
+    Brief description: ${book.description || "Not available"}
+    
+    Please suggest 6 similar books that readers might enjoy, providing the following details for each:
+    - Title
+    - Author
+    - Publication date
+    - Genre(s)
+    - Brief description of the book
+    - Average rating (1-5 scale)
+    
+    Format your response as a JSON array of objects with these fields.`;
+  },
+};
+
+export const ACTION_TYPES = {
+  USER: {
+    REGISTER: "user/register",
+    LOGIN: "user/login",
+    LOGOUT: "user/logout",
+    UPDATE_PREFERENCES: "user/updatePreferences",
+    RESET_PASSWORD: "user/resetPassword",
+    UPDATE_PROFILE: "user/updateProfile",
+  },
+  SEARCH: {
+    EXPORT: "search/export",
+    SHARE: "search/share",
+    CLEAR: "search/clear",
+    NAVIGATE: "search/navigate",
+  },
+  CHAT: {
+    SEND_MESSAGE: "chat/sendMessage",
+    REGENERATE_RESPONSE: "chat/regenerateResponse",
+    LOAD_SESSIONS: "chat/loadSessions",
+    LOAD_MESSAGES: "chat/loadMessages",
+    EXPORT: "chat/export",
+    SHARE: "chat/share",
+  },
+  BOOK: {
+    FETCH_POPULAR: "books/fetchPopular",
+    SEARCH: "books/search",
+    FETCH_DETAIL: "books/fetchDetail",
+    FETCH_SIMILAR: "books/fetchSimilar",
+    BOOKMARK: "books/bookmark",
+    REMOVE_BOOKMARK: "books/removeBookmark",
+    SUBMIT_REVIEW: "books/submitReview",
+    FETCH_REVIEWS: "books/fetchReviews",
+    REGENERATE: "books/regenerate",
+    PROVIDE_FEEDBACK: "books/provideFeedback",
+    FETCH_USER_BOOKMARKS: "books/fetchUserBookmarks",
+  },
+  // New common slice for unified conversation handling
+  CONVERSATION: {
+    ADD_MESSAGE: "conversation/addMessage",
+    EXPORT: "conversation/export",
+    SHARE: "conversation/share",
+    CLEAR: "conversation/clear",
+  },
 };
 
 export const UI = {
@@ -108,204 +323,9 @@ export const BOOK = {
   },
 };
 
-export const MESSAGES = {
-  ERRORS: {
-    GENERAL: "Something went wrong. Please try again.",
-    AUTH: {
-      REQUIRED: "You need to be logged in to perform this action.",
-      INVALID_CREDENTIALS: "Invalid email or password.",
-      EMAIL_IN_USE: "This email address is already in use.",
-      WEAK_PASSWORD: "The password must be at least 6 characters long.",
-    },
-    SEARCH: {
-      EMPTY: "Please enter a search term.",
-      TOO_SHORT: "Search term must be at least 3 characters long.",
-      NO_RESULTS: "No books found matching your search.",
-    },
-    RECOMMENDATIONS: {
-      FAILED: "Failed to get recommendations. Please try again.",
-      GENERATION_FAILED:
-        "Failed to generate recommendations. Please try again.",
-    },
-    BOOK: {
-      NOT_FOUND: "Book not found.",
-      BOOKMARK_FAILED: "Failed to bookmark book. Please try again.",
-      FAVORITE_FAILED: "Failed to add book to favorites. Please try again.",
-    },
-  },
-  SUCCESS: {
-    AUTH: {
-      LOGIN: "You have been successfully logged in.",
-      LOGOUT: "You have been successfully logged out.",
-      REGISTER: "Your account has been created successfully.",
-    },
-    BOOK: {
-      BOOKMARKED: "Book has been bookmarked successfully.",
-      UNBOOKMARKED: "Book has been removed from bookmarks.",
-      FAVORITED: "Book has been added to favorites.",
-      UNFAVORITED: "Book has been removed from favorites.",
-    },
-    FEEDBACK: {
-      RECEIVED: "Thank you for your feedback!",
-    },
-    CHAT: {
-      EXPORTED: "Chat has been exported successfully.",
-      DELETED: "Chat has been deleted successfully.",
-      SHARED: "Link has been copied to clipboard.",
-    },
-  },
-  PLACEHOLDERS: {
-    SEARCH: "What kind of books are you looking for?",
-    CHAT_INPUT: "Ask for book recommendations...",
-  },
-};
-
-export const STORAGE_KEYS = {
-  THEME: "book-recommender-theme",
-  USER: "book-recommender-user",
-  AUTH_TOKEN: "book-recommender-auth-token",
-  SEARCH_HISTORY: "book-recommender-search-history",
-  GUEST_BOOKMARKS: "book-recommender-guest-bookmarks",
-  CONVERSATION: "bookRecommenderConversation",
-  CHAT_SESSION_PREFIX: "bookRecommenderChat_",
-  CHAT_SESSIONS: "bookRecommenderSessions",
-};
-
-export const DEFAULT_VALUES = {
-  USER_PREFERENCES: {
-    favoriteGenres: [],
-    darkMode: false,
-    notificationsEnabled: true,
-  },
-  EXPORT_FORMATS: ["json", "txt", "pdf"] as const,
-};
-
-export const ACTION_TYPES = {
-  USER: {
-    REGISTER: "user/register",
-    LOGIN: "user/login",
-    GOOGLE_LOGIN: "user/googleLogin",
-    LOGOUT: "user/logout",
-    UPDATE_PREFERENCES: "user/updatePreferences",
-    RESET_PASSWORD: "user/resetPassword",
-    UPDATE_PROFILE: "user/updateProfile",
-  },
-  SEARCH: {
-    EXPORT: "search/export",
-    SHARE: "search/share",
-    CLEAR: "search/clear",
-    NAVIGATE: "search/navigate",
-  },
-  CHAT: {
-    SEND_MESSAGE: "chat/sendMessage",
-    REGENERATE_RESPONSE: "chat/regenerateResponse",
-    LOAD_SESSIONS: "chat/loadSessions",
-    LOAD_MESSAGES: "chat/loadMessages",
-    EXPORT: "chat/export",
-    SHARE: "chat/share",
-  },
-  BOOK: {
-    FETCH_POPULAR: "books/fetchPopular",
-    SEARCH: "books/search",
-    FETCH_DETAIL: "books/fetchDetail",
-    FETCH_SIMILAR: "books/fetchSimilar",
-    BOOKMARK: "books/bookmark",
-    REMOVE_BOOKMARK: "books/removeBookmark",
-    SUBMIT_REVIEW: "books/submitReview",
-    FETCH_REVIEWS: "books/fetchReviews",
-    REGENERATE: "books/regenerate",
-    PROVIDE_FEEDBACK: "books/provideFeedback",
-    FETCH_USER_BOOKMARKS: "books/fetchUserBookmarks",
-  },
-  // New common slice for unified conversation handling
-  CONVERSATION: {
-    ADD_MESSAGE: "conversation/addMessage",
-    EXPORT: "conversation/export",
-    SHARE: "conversation/share",
-    CLEAR: "conversation/clear",
-  },
-};
-
 export const MESSAGE_TYPES = {
   QUERY: "query",
   RESPONSE: "response",
   ERROR: "error",
   RESULT: "result",
-};
-
-export const ROUTES = {
-  HOME: "/",
-  LOGIN: "/login",
-  REGISTER: "/register",
-  LOGOUT: "/logout",
-  ACCOUNT: "/account",
-  BOOK_DETAILS: "/books",
-  CHAT: "/chat",
-  ABOUT: "/about",
-};
-
-export const COLLECTION_CONFIG = {
-  bookmarks: {
-    userField: "bookmarks",
-    collectionName: FIREBASE_COLLECTIONS.BOOKMARKS,
-    historyAction: "bookmark",
-  },
-  favorites: {
-    userField: "favorites",
-    collectionName: FIREBASE_COLLECTIONS.FAVORITES,
-    historyAction: "favorite",
-  },
-  savedForLater: {
-    userField: "savedForLater",
-    collectionName: FIREBASE_COLLECTIONS.SAVED_FOR_LATER,
-  },
-};
-
-export const AI_PROMPTS = {
-  SYSTEM_ROLE:
-    "You are a knowledgeable literary assistant that recommends books. Provide recommendations as structured JSON data.",
-  BOOK_RECOMMENDATION: (
-    text: string,
-    genre?: string,
-    length?: string,
-    mood?: string,
-    userPreferences?: any,
-  ): string => {
-    let prompt = `Recommend books that match the following criteria: ${text}`;
-    if (genre) prompt += ` in the ${genre} genre`;
-    if (length) prompt += ` that are ${length} in length`;
-    if (mood) prompt += ` with a ${mood} mood`;
-    if (userPreferences) {
-      prompt += `. Consider that the user has shown preference for `;
-      if (userPreferences.favoriteGenres?.length) {
-        prompt += `genres like ${userPreferences.favoriteGenres.join(", ")}, `;
-      }
-      if (userPreferences.preferredLength) {
-        prompt += `${userPreferences.preferredLength} length books, `;
-      }
-      if (userPreferences.preferredMoods?.length) {
-        prompt += `moods like ${userPreferences.preferredMoods.join(", ")}`;
-      }
-    }
-    prompt += `. For each book, provide the following information in valid JSON format: 
-      title, author, publicationDate, rating (1-5), reviewCount, description, genres (array), pageCount, 
-      imageUrl (a URL if available), and where to purchase or read the book as buyLinks and readLinks objects. 
-      Return at least 5 books if possible. Format your response as a JSON array of book objects.`;
-    return prompt;
-  },
-  SIMILAR_BOOKS: (book: any): string => {
-    return `Please recommend books similar to "${book.title}" by ${book.author}. 
-    This book is in the ${book.genres?.join(", ") || "unknown"} genre(s).
-    Brief description: ${book.description || "Not available"}
-    
-    Please suggest 6 similar books that readers might enjoy, providing the following details for each:
-    - Title
-    - Author
-    - Publication date
-    - Genre(s)
-    - Brief description of the book
-    - Average rating (1-5 scale)
-    
-    Format your response as a JSON array of objects with these fields.`;
-  },
 };

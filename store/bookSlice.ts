@@ -128,7 +128,7 @@ export const fetchSimilarBooks = createAsyncThunk(
       if (!bookDetails) {
         throw new Error("Book details not available");
       }
-      return await bookService.getSimilarBooks(bookId, bookDetails);
+      return await bookService.getSimilarBooks(bookId);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }

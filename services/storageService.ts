@@ -1,7 +1,24 @@
-import { STORAGE_KEYS } from "@/lib/constants";
+import { CollectionItem } from "./collectionsService";
+
 import { ConversationItem } from "@/types/search";
 import { Message } from "@/types/chat";
 import { logError } from "@/lib/errorHandler";
+
+// Local storage keys
+const STORAGE_KEYS = {
+  AUTH_TOKEN: "auth_token",
+  USER: "user",
+  USER_PREFERENCES: "user_preferences",
+  THEME: "theme",
+  GUEST_BOOKMARKS: "guest_bookmarks",
+  SEARCH_HISTORY: "search_history",
+  CONVERSATION: "conversation",
+  CHAT_SESSIONS: "chat_sessions",
+  CHAT_SESSION_PREFIX: "chat_session_",
+};
+
+// Maximum number of items to keep in history
+const MAX_HISTORY_ITEMS = 20;
 
 // Type-safe wrapper for localStorage operations
 export function setItem<T>(key: string, value: T): void {
@@ -41,40 +58,170 @@ export function hasItem(key: string): boolean {
   return localStorage.getItem(key) !== null;
 }
 
-export function saveUserAuth(token: string): void {
-  setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+export function getUserAuth(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const storedData = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+    if (!storedData) return null;
+    const tokenData = JSON.parse(storedData);
+    // Check if token has expired
+    if (tokenData.expiry < Date.now()) {
+      clearUserAuth();
+      return null;
+    }
+    // Verify browser fingerprint hasn't changed (could indicate token theft)
+    const currentFingerprint = generateBrowserFingerprint();
+    if (tokenData.fingerprint !== currentFingerprint) {
+      // console.warn("Security warning: Browser fingerprint mismatch");
+      clearUserAuth();
+      return null;
+    }
+    // Check if the session cookie is still present
+    if (document.cookie && !document.cookie.includes("sessionActive=true")) {
+      // console.warn("Session cookie not found, possible security issue");
+      clearUserAuth();
+      return null;
+    }
+    return tokenData.value;
+  } catch {
+    return null;
+  }
 }
 
-export function getUserAuth(): string | null {
-  return getItem<string | null>(STORAGE_KEYS.AUTH_TOKEN, null);
+export function saveUserAuth(token: string): void {
+  if (typeof window === "undefined") return;
+  try {
+    // Store the token with an expiration
+    const expiry = new Date();
+    expiry.setHours(expiry.getHours() + 1); // 1 hour expiry
+    const tokenData = {
+      value: token,
+      expiry: expiry.getTime(),
+      fingerprint: generateBrowserFingerprint(), // Add a browser fingerprint
+    };
+    localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, JSON.stringify(tokenData));
+    // Also set a session cookie if possible (more secure but shorter-lived)
+    if (document.cookie) {
+      // Set a session identifier (not the actual token)
+      document.cookie = `sessionActive=true; path=/; SameSite=Strict; secure`;
+    }
+  } catch {}
 }
 
 export function clearUserAuth(): void {
-  removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  } catch {}
 }
 
-export function saveTheme(theme: "light" | "dark"): void {
-  setItem(STORAGE_KEYS.THEME, theme);
+// Generate a simple browser fingerprint to detect if token is used from different browser
+function generateBrowserFingerprint(): string {
+  const fingerprint = [
+    navigator.userAgent,
+    navigator.language,
+    screen.colorDepth,
+    screen.width + "x" + screen.height,
+    new Date().getTimezoneOffset(),
+  ].join("||");
+  // Create a hash of the fingerprint
+  let hash = 0;
+  for (let i = 0; i < fingerprint.length; i++) {
+    hash = (hash << 5) - hash + fingerprint.charCodeAt(i);
+    hash |= 0; // Convert to 32bit integer
+  }
+  return hash.toString();
+}
+
+export function getGuestBookmarks(): CollectionItem[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const bookmarks = localStorage.getItem(STORAGE_KEYS.GUEST_BOOKMARKS);
+    return bookmarks ? JSON.parse(bookmarks) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveGuestBookmarks(bookmarks: CollectionItem[]): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      STORAGE_KEYS.GUEST_BOOKMARKS,
+      JSON.stringify(bookmarks),
+    );
+  } catch {}
+}
+
+export function getSearchHistory(): string[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const history = localStorage.getItem(STORAGE_KEYS.SEARCH_HISTORY);
+    return history ? JSON.parse(history) : [];
+  } catch {
+    return [];
+  }
+}
+
+// Add a search query to history
+export function addToSearchHistory(query: string): void {
+  if (typeof window === "undefined" || !query.trim()) return;
+  try {
+    const history = getSearchHistory();
+    // Remove duplicates and add new query to beginning
+    const updatedHistory = [
+      query,
+      ...history.filter((item) => item !== query),
+    ].slice(0, MAX_HISTORY_ITEMS);
+    localStorage.setItem(
+      STORAGE_KEYS.SEARCH_HISTORY,
+      JSON.stringify(updatedHistory),
+    );
+  } catch {}
+}
+
+export function clearSearchHistory(): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.removeItem(STORAGE_KEYS.SEARCH_HISTORY);
+  } catch {}
+}
+
+export function getUserPreferences(): any {
+  if (typeof window === "undefined") return {};
+  try {
+    const preferences = localStorage.getItem(STORAGE_KEYS.USER_PREFERENCES);
+    return preferences ? JSON.parse(preferences) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveUserPreferences(preferences: any): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(
+      STORAGE_KEYS.USER_PREFERENCES,
+      JSON.stringify(preferences),
+    );
+  } catch {}
 }
 
 export function getTheme(): "light" | "dark" {
-  return getItem<"light" | "dark">(STORAGE_KEYS.THEME, "light");
+  if (typeof window === "undefined") return "light";
+  try {
+    const theme = localStorage.getItem(STORAGE_KEYS.THEME);
+    return theme === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
 }
 
-export function saveGuestBookmarks(bookmarks: any[]): void {
-  setItem(STORAGE_KEYS.GUEST_BOOKMARKS, bookmarks);
-}
-
-export function getGuestBookmarks(): any[] {
-  return getItem<any[]>(STORAGE_KEYS.GUEST_BOOKMARKS, []);
-}
-
-export function saveSearchHistory(history: any[]): void {
-  setItem(STORAGE_KEYS.SEARCH_HISTORY, history);
-}
-
-export function getSearchHistory(): any[] {
-  return getItem<any[]>(STORAGE_KEYS.SEARCH_HISTORY, []);
+export function saveTheme(theme: "light" | "dark"): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEYS.THEME, theme);
+  } catch {}
 }
 
 export function saveConversation(conversation: ConversationItem[]): void {
@@ -142,4 +289,13 @@ export function clearAllUserData(): void {
   removeItem(STORAGE_KEYS.SEARCH_HISTORY);
   removeItem(STORAGE_KEYS.CONVERSATION);
   clearAllChatData();
+}
+
+export function clearAllStorage(): void {
+  if (typeof window === "undefined") return;
+  try {
+    Object.values(STORAGE_KEYS).forEach((key) => {
+      localStorage.removeItem(key);
+    });
+  } catch {}
 }

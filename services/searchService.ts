@@ -69,14 +69,18 @@ export const searchBooksWithKeyword = async (
 
 export const getUserSearchHistory = async (
   userId: string,
-  limit: number = 20,
+  limitCount: number = 20,
 ): Promise<SearchHistoryItem[]> => {
   try {
     const userHistoryRef = collection(
       firestore,
       firebasePathUtils.userHistory(userId),
     );
-    const q = query(userHistoryRef, orderBy("timestamp", "desc"), limit(limit));
+    const q = query(
+      userHistoryRef,
+      orderBy("timestamp", "desc"),
+      limit(limitCount),
+    );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,
@@ -142,11 +146,11 @@ export const getCachedSearchResults = async (
 };
 
 export const getTrendingSearches = async (
-  limit: number = 10,
+  limitCount: number = 10,
 ): Promise<string[]> => {
   try {
     const statsRef = collection(firestore, FIREBASE_COLLECTIONS.SEARCH_STATS);
-    const q = query(statsRef, orderBy("count", "desc"), limit(limit));
+    const q = query(statsRef, orderBy("count", "desc"), limit(limitCount));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => doc.data().query);
   } catch {
@@ -156,7 +160,7 @@ export const getTrendingSearches = async (
 
 export const getRecommendedBooks = async (
   userId?: string,
-  limit: number = SEARCH.POPULAR_BOOKS_LIMIT,
+  limitCount: number = SEARCH.POPULAR_BOOKS_LIMIT,
 ): Promise<Book[]> => {
   try {
     if (userId) {
@@ -172,7 +176,7 @@ export const getRecommendedBooks = async (
             collection(firestore, FIREBASE_COLLECTIONS.BOOKS),
             where("genres", "array-contains-any", favoriteGenres.slice(0, 10)), // Firestore limit: max 10 values
             orderBy("rating", "desc"),
-            limit(limit),
+            limit(limitCount),
           );
           const genreSnapshot = await getDocs(genreQuery);
           if (!genreSnapshot.empty) {
@@ -227,7 +231,7 @@ export const recordSearchQuery = async (query: string): Promise<void> => {
 
 export const getBooksByGenre = async (
   genre: string,
-  limit: number = SEARCH.MAX_RESULTS,
+  limitCount: number = SEARCH.MAX_RESULTS,
   lastDoc?: QueryDocumentSnapshot<DocumentData>,
 ): Promise<PaginatedResult<Book>> => {
   try {
@@ -236,7 +240,7 @@ export const getBooksByGenre = async (
       booksRef,
       where("genres", "array-contains", genre),
       orderBy("rating", "desc"),
-      limit(limit),
+      limit(limitCount),
     );
     if (lastDoc) {
       q = query(
@@ -244,7 +248,7 @@ export const getBooksByGenre = async (
         where("genres", "array-contains", genre),
         orderBy("rating", "desc"),
         startAfter(lastDoc),
-        limit(limit),
+        limit(limitCount),
       );
     }
     const querySnapshot = await getDocs(q);
@@ -255,7 +259,7 @@ export const getBooksByGenre = async (
     return {
       data: books,
       lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
-      hasMore: querySnapshot.docs.length === limit,
+      hasMore: querySnapshot.docs.length === limitCount,
     };
   } catch (error) {
     throw error;
@@ -263,11 +267,11 @@ export const getBooksByGenre = async (
 };
 
 export const getRecentlyAddedBooks = async (
-  limit: number = SEARCH.MAX_RESULTS,
+  limitCount: number = SEARCH.MAX_RESULTS,
 ): Promise<Book[]> => {
   try {
     const booksRef = collection(firestore, FIREBASE_COLLECTIONS.BOOKS);
-    const q = query(booksRef, orderBy("createdAt", "desc"), limit(limit));
+    const q = query(booksRef, orderBy("createdAt", "desc"), limit(limitCount));
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({
       id: doc.id,

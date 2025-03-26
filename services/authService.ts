@@ -1,18 +1,11 @@
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  updateProfile,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
+import { userApi } from "./apiService";
+import * as storageService from "./storageService";
+import { withErrorHandling } from "./errorService";
+import { tokenManager } from "./tokenService";
 
-import { auth, firestore } from "@/lib/firebase";
 import { User, UserPreferences } from "@/types/user";
-import { DEFAULT_VALUES, FIREBASE_COLLECTIONS } from "@/lib/constants";
-import { firebaseUtils } from "@/lib/utils";
+import { DEFAULT_VALUES } from "@/lib/constants";
+import { ErrorCategory } from "@/lib/errorHandler";
 
 interface LoginCredentials {
   email: string;
@@ -23,170 +16,91 @@ interface RegistrationData extends LoginCredentials {
   displayName: string;
 }
 
-export const registerUser = async (data: RegistrationData): Promise<User> => {
-  try {
-    const userCredential = await createUserWithEmailAndPassword(
-      auth,
-      data.email,
-      data.password,
-    );
-    await updateProfile(userCredential.user, {
-      displayName: data.displayName,
-    });
-    const userRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.USERS,
-      userCredential.user.uid,
-    );
-    await setDoc(userRef, {
-      email: data.email,
-      displayName: data.displayName,
-      createdAt: new Date().toISOString(),
-      preferences: DEFAULT_VALUES.USER_PREFERENCES,
-    });
-    return firebaseUtils.formatUser(userCredential.user);
-  } catch (error) {
-    throw error;
-  }
-};
+export const registerUser = withErrorHandling(
+  async (data: RegistrationData): Promise<User> => {
+    return await userApi.register(data);
+  },
+  ErrorCategory.AUTH,
+);
 
-export const loginUser = async (
-  credentials: LoginCredentials,
-): Promise<User> => {
-  try {
-    const userCredential = await signInWithEmailAndPassword(
-      auth,
-      credentials.email,
-      credentials.password,
-    );
-    const userRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.USERS,
-      userCredential.user.uid,
-    );
-    const userDoc = await getDoc(userRef);
-    let preferences = DEFAULT_VALUES.USER_PREFERENCES;
-    if (userDoc.exists()) {
-      preferences =
-        userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
+export const loginUser = withErrorHandling(
+  async (credentials: LoginCredentials): Promise<User> => {
+    const userData = await userApi.login(credentials);
+    // Start token monitoring after successful login
+    tokenManager.startTokenMonitoring();
+    return userData;
+  },
+  ErrorCategory.AUTH,
+);
+
+export const logoutUser = withErrorHandling(async (): Promise<void> => {
+  // Stop token monitoring when logging out
+  tokenManager.stopTokenMonitoring();
+  // Clear stored auth data
+  storageService.clearUserAuth();
+}, ErrorCategory.AUTH);
+
+export const resetPassword = withErrorHandling(
+  async (email: string): Promise<void> => {
+    await userApi.resetPassword(email);
+  },
+  ErrorCategory.AUTH,
+);
+
+export const updateUserProfile = withErrorHandling(
+  async (
+    displayName: string | undefined,
+    photoURL: string | undefined,
+  ): Promise<User> => {
+    const updateData: { displayName?: string; photoURL?: string } = {};
+    if (displayName !== undefined) {
+      updateData.displayName = displayName;
     }
-    await updateDoc(userRef, {
-      lastLogin: new Date().toISOString(),
-    });
-    return firebaseUtils.formatUser(userCredential.user, preferences);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const loginWithGoogle = async (): Promise<User> => {
-  try {
-    const provider = new GoogleAuthProvider();
-    const userCredential = await signInWithPopup(auth, provider);
-    const userRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.USERS,
-      userCredential.user.uid,
-    );
-    const userDoc = await getDoc(userRef);
-    let preferences = DEFAULT_VALUES.USER_PREFERENCES;
-    if (userDoc.exists()) {
-      preferences =
-        userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-      await updateDoc(userRef, {
-        lastLogin: new Date().toISOString(),
-      });
-    } else {
-      await setDoc(userRef, {
-        email: userCredential.user.email,
-        displayName: userCredential.user.displayName,
-        photoURL: userCredential.user.photoURL,
-        createdAt: new Date().toISOString(),
-        preferences: DEFAULT_VALUES.USER_PREFERENCES,
-      });
+    if (photoURL !== undefined) {
+      updateData.photoURL = photoURL;
     }
-    return firebaseUtils.formatUser(userCredential.user, preferences);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const logoutUser = async (): Promise<void> => {
-  try {
-    await signOut(auth);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const resetPassword = async (email: string): Promise<void> => {
-  try {
-    await sendPasswordResetEmail(auth, email);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const updateUserProfile = async (
-  displayName?: string,
-  photoURL?: string,
-): Promise<{ displayName?: string; photoURL?: string }> => {
-  try {
-    const currentUser = auth.currentUser;
-    if (!currentUser) {
-      throw new Error("User not authenticated");
+    // Don't make API call if no data to update
+    if (Object.keys(updateData).length === 0) {
+      throw new Error("No profile data provided for update");
     }
-    await updateProfile(currentUser, {
-      displayName: displayName || currentUser.displayName || undefined,
-      photoURL: photoURL || currentUser.photoURL || undefined,
-    });
-    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, currentUser.uid);
-    const updateData: Record<string, any> = {};
-    if (displayName) updateData.displayName = displayName;
-    if (photoURL) updateData.photoURL = photoURL;
-    await updateDoc(userRef, updateData);
-    return {
-      displayName: displayName || currentUser.displayName || undefined,
-      photoURL: photoURL || currentUser.photoURL || undefined,
-    };
-  } catch (error) {
-    throw error;
-  }
+    return await userApi.updateProfile(updateData);
+  },
+  ErrorCategory.USER,
+);
+
+export const getUserPreferences = withErrorHandling(
+  async (): Promise<UserPreferences> => {
+    try {
+      return await userApi.getPreferences();
+    } catch {
+      return DEFAULT_VALUES.USER_PREFERENCES;
+    }
+  },
+  ErrorCategory.USER,
+);
+
+export const updateUserPreferences = withErrorHandling(
+  async (preferences: Partial<UserPreferences>): Promise<UserPreferences> => {
+    return await userApi.updatePreferences(preferences);
+  },
+  ErrorCategory.USER,
+);
+
+export const checkAuthStatus = (): boolean => {
+  const token = storageService.getUserAuth();
+  return !!token;
 };
 
-export const getUserPreferences = async (
-  userId: string,
-): Promise<UserPreferences> => {
-  try {
-    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
-    const userDoc = await getDoc(userRef);
-    if (userDoc.exists()) {
-      return userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-    }
-    return DEFAULT_VALUES.USER_PREFERENCES;
-  } catch (error) {
-    throw error;
+export const handleAuthError = async (error: any): Promise<boolean> => {
+  // Check if this is a token expiration error
+  if (
+    error?.code === "auth/id-token-expired" ||
+    error?.message?.includes("token expired") ||
+    error?.message?.includes("invalid token")
+  ) {
+    // Try to refresh the token
+    const newToken = await tokenManager.forceRefresh();
+    return !!newToken; // Return true if refresh succeeded
   }
-};
-
-export const updateUserPreferences = async (
-  userId: string,
-  preferences: Partial<UserPreferences>,
-): Promise<UserPreferences> => {
-  try {
-    const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
-    const userDoc = await getDoc(userRef);
-    if (!userDoc.exists()) {
-      throw new Error("User profile not found");
-    }
-    const currentPreferences =
-      userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-    const updatedPreferences = { ...currentPreferences, ...preferences };
-    await updateDoc(userRef, {
-      preferences: updatedPreferences,
-    });
-    return updatedPreferences;
-  } catch (error) {
-    throw error;
-  }
+  return false; // Other auth errors can't be automatically handled
 };

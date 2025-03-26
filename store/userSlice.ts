@@ -49,17 +49,6 @@ export const loginUser = createAsyncThunk(
   },
 );
 
-export const loginWithGoogle = createAsyncThunk(
-  ACTION_TYPES.USER.GOOGLE_LOGIN,
-  async (_, { rejectWithValue }) => {
-    try {
-      return await authService.loginWithGoogle();
-    } catch (error) {
-      return rejectWithValue((error as Error).message);
-    }
-  },
-);
-
 export const logoutUser = createAsyncThunk(
   ACTION_TYPES.USER.LOGOUT,
   async (_, { rejectWithValue }) => {
@@ -84,7 +73,7 @@ export const updateUserPreferences = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      return await authService.updateUserPreferences(userId, preferences);
+      return await authService.updateUserPreferences(preferences);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -142,14 +131,6 @@ const userSlice = createSlice({
       state.user = action.payload;
       state.success = "Login successful";
     });
-    reduxUtils.createAsyncThunkReducers(
-      builder,
-      loginWithGoogle,
-      (state, action) => {
-        state.user = action.payload;
-        state.success = "Google login successful";
-      },
-    );
     reduxUtils.createAsyncThunkReducers(builder, resetPassword, (state) => {
       state.success = "Password reset email sent";
     });

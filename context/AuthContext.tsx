@@ -155,7 +155,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const updateUserProfile = async (displayName: string, photoURL?: string) => {
     try {
-      if (!user) throw new Error(MESSAGES.ERRORS.AUTH.REQUIRED);
+      if (!user) throw new Error(MESSAGES.ERRORS.AUTH.INVALID_CREDENTIALS);
       const updates: { displayName: string; photoURL?: string } = {
         displayName,
       };

@@ -5,7 +5,6 @@ import { User as FirebaseUser } from "firebase/auth";
 import {
   BOOK,
   FIREBASE_COLLECTIONS,
-  STORAGE_KEYS,
   SEARCH,
   AI_PROMPTS,
   DEFAULT_VALUES,
@@ -16,6 +15,18 @@ import { Message } from "@/types/chat";
 import { User, UserPreferences } from "@/types/user";
 import { BookRecommendation } from "@/types/book";
 import { SearchOptions } from "@/types/search";
+
+const STORAGE_KEYS = {
+  AUTH_TOKEN: "auth_token",
+  USER: "user",
+  USER_PREFERENCES: "user_preferences",
+  THEME: "theme",
+  GUEST_BOOKMARKS: "guest_bookmarks",
+  SEARCH_HISTORY: "search_history",
+  CONVERSATION: "conversation",
+  CHAT_SESSIONS: "chat_sessions",
+  CHAT_SESSION_PREFIX: "chat_session_",
+};
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -331,10 +342,10 @@ export const firebasePathUtils = {
     return `${FIREBASE_COLLECTIONS.USERS}/${userId}/${FIREBASE_COLLECTIONS.FAVORITES}`;
   },
   userPreferences: (userId: string): string => {
-    return `${FIREBASE_COLLECTIONS.USERS}/${userId}/${FIREBASE_COLLECTIONS.PREFERENCES}`;
+    return `${FIREBASE_COLLECTIONS.USERS}/${userId}/${FIREBASE_COLLECTIONS.USER_PREFERENCES}`;
   },
   chatMessages: (chatId: string): string => {
-    return `${FIREBASE_COLLECTIONS.CHATS}/${chatId}/${FIREBASE_COLLECTIONS.MESSAGES}`;
+    return `${FIREBASE_COLLECTIONS.CHAT_SESSIONS}/${chatId}/${FIREBASE_COLLECTIONS.CHAT_MESSAGES}`;
   },
   userHistory: (userId: string): string => {
     return `${FIREBASE_COLLECTIONS.USERS}/${userId}/searchHistory`;
@@ -350,9 +361,6 @@ export const firebasePathUtils = {
   },
   userFeedbackDoc: (userId: string, bookId: string): string => {
     return `${FIREBASE_COLLECTIONS.USER_FEEDBACK}/${userId}_${bookId}`;
-  },
-  readingProgressDoc: (userId: string, bookId: string): string => {
-    return `${FIREBASE_COLLECTIONS.USER_READING_PROGRESS}/${userId}_${bookId}`;
   },
   bookRecommendationsDoc: (bookId: string): string => {
     return `${FIREBASE_COLLECTIONS.BOOK_RECOMMENDATIONS}/${bookId}`;
@@ -479,12 +487,6 @@ export const firebaseUtils = {
       displayName: firebaseUser.displayName,
       photoURL: firebaseUser.photoURL,
       isAnonymous: firebaseUser.isAnonymous,
-      createdAt: firebaseUser.metadata.creationTime
-        ? new Date(firebaseUser.metadata.creationTime).getTime()
-        : undefined,
-      lastLogin: firebaseUser.metadata.lastSignInTime
-        ? new Date(firebaseUser.metadata.lastSignInTime).getTime()
-        : undefined,
       preferences,
     };
   },

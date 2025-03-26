@@ -1,3 +1,5 @@
+import { User as FirebaseUser } from "firebase/auth";
+
 export interface UserPreferences {
   favoriteGenres: string[];
   preferredLength?: "short" | "medium" | "long";
@@ -6,14 +8,7 @@ export interface UserPreferences {
   notificationsEnabled: boolean;
 }
 
-export interface User {
-  uid: string;
-  email: string;
-  displayName: string | null;
-  photoURL: string | null;
-  isAnonymous: boolean;
-  createdAt?: number;
-  lastLogin?: number;
+export interface User extends Partial<FirebaseUser> {
   preferences: UserPreferences;
 }
 

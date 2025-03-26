@@ -85,7 +85,11 @@ export const addToCollection = async (
     });
     // Add to user history if there's a history action defined
     if (config.historyAction) {
-      await addToUserHistory(userId, bookId, config.historyAction);
+      await addToUserHistory(
+        userId,
+        bookId,
+        config.historyAction as UserHistory["action"],
+      );
     }
     return { success: true };
   } catch (error) {
@@ -182,6 +186,7 @@ export const getUserReadingHistory = async (
     const historySnapshot = await getDocs(q);
     const history = historySnapshot.docs.map((doc) => ({
       id: doc.id,
+      bookId: doc.data().bookId,
       ...doc.data(),
       timestamp:
         doc.data().timestamp?.toDate?.() || new Date(doc.data().timestamp),
@@ -203,54 +208,6 @@ export const getUserReadingHistory = async (
     return historyWithBooks;
   } catch (error) {
     throw error;
-  }
-};
-
-export const updateReadingProgress = async (
-  userId: string,
-  bookId: string,
-  progress: number,
-) => {
-  try {
-    const progressRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.USER_READING_PROGRESS,
-      `${userId}_${bookId}`,
-    );
-    await setDoc(
-      progressRef,
-      {
-        userId,
-        bookId,
-        progress,
-        updatedAt: serverTimestamp(),
-      },
-      { merge: true },
-    );
-    await addToUserHistory(userId, bookId, "read", progress);
-    return { success: true, progress };
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const getReadingProgress = async (
-  userId: string,
-  bookId: string,
-): Promise<number> => {
-  try {
-    const progressRef = doc(
-      firestore,
-      FIREBASE_COLLECTIONS.USER_READING_PROGRESS,
-      `${userId}_${bookId}`,
-    );
-    const progressDoc = await getDoc(progressRef);
-    if (progressDoc.exists()) {
-      return progressDoc.data().progress;
-    }
-    return 0; // Default progress is 0%
-  } catch {
-    return 0;
   }
 };
 
@@ -277,7 +234,7 @@ export const updateUserPreferences = async (
     const userRef = doc(firestore, FIREBASE_COLLECTIONS.USERS, userId);
     const userDoc = await getDoc(userRef);
     if (!userDoc.exists()) {
-      throw new Error(MESSAGES.ERRORS.AUTH.REQUIRED);
+      throw new Error(MESSAGES.ERRORS.AUTH.INVALID_CREDENTIALS);
     }
     const currentPreferences = userDoc.data().preferences || {};
     const updatedPreferences = { ...currentPreferences, ...preferences };
@@ -352,7 +309,7 @@ export const recordUserFeedback = async (
           preferenceData.genrePreferences[genre].count;
       });
       // Update length preference if available
-      if (length) {
+      if (length && preferenceData.lengthPreferences) {
         if (!preferenceData.lengthPreferences[length]) {
           preferenceData.lengthPreferences[length] = { count: 0, likes: 0 };
         }
@@ -425,7 +382,9 @@ export const getUserRecommendationStats = async (userId: string) => {
       },
     );
     // Get top genres (by probability with minimum threshold of interactions)
-    const topGenres = Object.entries(genrePreferences)
+    const topGenres = Object.entries(
+      genrePreferences as Record<string, GenrePreference>,
+    )
       .filter(([_, pref]) => pref.count >= 3) // Minimum threshold for reliable data
       .map(([genre, pref]) => ({
         genre,
@@ -437,7 +396,9 @@ export const getUserRecommendationStats = async (userId: string) => {
     // Determine preferred length
     let preferredLength: string | null = null;
     let highestLengthProb = 0;
-    Object.entries(lengthPreferences).forEach(([length, pref]) => {
+    Object.entries(
+      lengthPreferences as Record<string, GenrePreference>,
+    ).forEach(([length, pref]) => {
       if (pref.count >= 2) {
         const probability = pref.likes / pref.count;
         if (probability > highestLengthProb) {
