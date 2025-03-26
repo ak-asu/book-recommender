@@ -1,18 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import {
-  collection,
-  addDoc,
-  query,
-  getDocs,
-  orderBy,
-} from "firebase/firestore";
 
 import { RootState } from "./store";
 
 import { Message, MessageType } from "@/types/chat";
-import { firestore } from "@/lib/firebase";
-import { miscUtils, storageUtils } from "@/lib/utils";
+import { miscUtils } from "@/lib/utils";
 import { ACTION_TYPES } from "@/lib/constants";
+import * as conversationService from "@/services/conversationService";
 
 interface ChatState {
   messages: Message[];
@@ -89,36 +82,15 @@ export const sendMessage = createAsyncThunk(
           books: data.books,
         },
       };
-      if (userId) {
-        const messagesRef = collection(
-          firestore,
-          "users",
-          userId,
-          "chatSessions",
-          chatSessionId,
-          "messages",
-        );
-        await Promise.all([
-          addDoc(messagesRef, {
-            ...userMessage,
-            timestamp: new Date(userMessage.timestamp),
-          }),
-          addDoc(messagesRef, {
-            ...systemMessage,
-            timestamp: new Date(systemMessage.timestamp),
-          }),
-        ]);
-      } else {
-        const existingMessages = storageUtils.getChatMessages(chatSessionId);
-        storageUtils.saveChatMessages(chatSessionId, [
-          ...existingMessages,
-          userMessage,
-          systemMessage,
-        ]);
-      }
+      const messages = [userMessage, systemMessage];
+      await conversationService.saveChatMessages(
+        chatSessionId,
+        messages,
+        userId,
+      );
       return {
         sessionId: chatSessionId,
-        messages: [userMessage, systemMessage],
+        messages,
       };
     } catch (error) {
       const errorMessage: Message = {
@@ -185,26 +157,12 @@ export const regenerateResponse = createAsyncThunk(
           regenerate: true,
         },
       };
-      if (userId) {
-        const messagesRef = collection(
-          firestore,
-          "users",
-          userId,
-          "chatSessions",
-          sessionId,
-          "messages",
-        );
-        await addDoc(messagesRef, {
-          ...systemMessage,
-          timestamp: new Date(systemMessage.timestamp),
-        });
-      } else {
-        const existingMessages = storageUtils.getChatMessages(sessionId);
-        storageUtils.saveChatMessages(sessionId, [
-          ...existingMessages,
-          systemMessage,
-        ]);
-      }
+      const updatedMessages = [...messages, systemMessage];
+      await conversationService.saveChatMessages(
+        sessionId,
+        updatedMessages,
+        userId,
+      );
       return systemMessage;
     } catch (error) {
       const errorMessage: Message = {
@@ -228,24 +186,7 @@ export const loadChatSessions = createAsyncThunk(
     try {
       const state = getState() as RootState;
       const userId = state.user?.user?.uid;
-      if (userId) {
-        const sessionsRef = collection(
-          firestore,
-          "users",
-          userId,
-          "chatSessions",
-        );
-        const q = query(sessionsRef, orderBy("lastActive", "desc"));
-        const querySnapshot = await getDocs(q);
-        const sessions = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          lastActive: doc.data().lastActive.toDate().getTime(),
-        }));
-        return sessions;
-      } else {
-        return storageUtils.getChatSessions();
-      }
+      return await conversationService.getChatSessions(userId);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -261,27 +202,47 @@ export const loadChatMessages = createAsyncThunk(
       }
       const state = getState() as RootState;
       const userId = state.user?.user?.uid;
-      if (userId) {
-        const messagesRef = collection(
-          firestore,
-          "users",
-          userId,
-          "chatSessions",
-          sessionId,
-          "messages",
-        );
-        const q = query(messagesRef, orderBy("timestamp", "asc"));
-        const querySnapshot = await getDocs(q);
-        const messages = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-          timestamp: doc.data().timestamp.toDate().getTime(),
-        })) as Message[];
-        return { sessionId, messages };
-      } else {
-        const messages = storageUtils.getChatMessages(sessionId);
-        return { sessionId, messages };
+      const messages = await conversationService.getChatMessages(
+        sessionId,
+        userId,
+      );
+      return { sessionId, messages };
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const exportChatConversation = createAsyncThunk(
+  ACTION_TYPES.CHAT.EXPORT,
+  async (format: "json" | "txt" | "pdf", { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const messages = state.chat.messages;
+      if (messages.length === 0) {
+        throw new Error("No conversation to export");
       }
+      return await conversationService.exportConversation(
+        messages,
+        format,
+        true,
+      );
+    } catch (error) {
+      return rejectWithValue((error as Error).message);
+    }
+  },
+);
+
+export const shareChatConversation = createAsyncThunk(
+  ACTION_TYPES.CHAT.SHARE,
+  async (_, { getState, rejectWithValue }) => {
+    try {
+      const state = getState() as RootState;
+      const messages = state.chat.messages;
+      if (messages.length === 0) {
+        throw new Error("No conversation to share");
+      }
+      return await conversationService.shareConversation(messages, true);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -357,6 +318,28 @@ const chatSlice = createSlice({
         state.messages = action.payload.messages;
       })
       .addCase(loadChatMessages.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(exportChatConversation.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(exportChatConversation.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(exportChatConversation.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload as string;
+      })
+      .addCase(shareChatConversation.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(shareChatConversation.fulfilled, (state) => {
+        state.loading = false;
+      })
+      .addCase(shareChatConversation.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload as string;
       });

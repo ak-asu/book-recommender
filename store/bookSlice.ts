@@ -1,24 +1,13 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  addDoc,
-  doc,
-  orderBy,
-  limit,
-  setDoc,
-  deleteDoc,
-} from "firebase/firestore";
 
 import { RootState } from "./store";
 
-import { firestore } from "@/lib/firebase";
 import { Book, Review } from "@/types/book";
 import { SearchOptions } from "@/types/search";
-import { ACTION_TYPES, FIREBASE_COLLECTIONS } from "@/lib/constants";
+import { ACTION_TYPES } from "@/lib/constants";
 import { reduxUtils } from "@/lib/utils";
+import * as bookService from "@/services/bookService";
+import * as userService from "@/services/userService";
 
 interface BookState {
   books: Book[];
@@ -54,14 +43,8 @@ export const fetchPopularBooks = createAsyncThunk(
   ACTION_TYPES.BOOK.FETCH_POPULAR,
   async (_, { rejectWithValue }) => {
     try {
-      const booksRef = collection(firestore, FIREBASE_COLLECTIONS.BOOKS);
-      const q = query(booksRef, orderBy("ranking", "asc"), limit(20));
-      const querySnapshot = await getDocs(q);
-      const books: Book[] = [];
-      querySnapshot.forEach((doc) => {
-        books.push(reduxUtils.normalizeBook({ id: doc.id, ...doc.data() }));
-      });
-      return books;
+      const result = await bookService.getPopularBooks();
+      return result.data;
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -77,44 +60,22 @@ export const fetchUserBookmarks = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      const bookmarksPromise = getDocs(
-        collection(firestore, "users", userId, "bookmarks"),
+      const bookmarks = await userService.getUserCollection(
+        userId,
+        "bookmarks",
       );
-      const favoritesPromise = getDocs(
-        collection(firestore, "users", userId, "favorites"),
+      const favorites = await userService.getUserCollection(
+        userId,
+        "favorites",
       );
-      const savedForLaterPromise = getDocs(
-        collection(firestore, "users", userId, "savedForLater"),
+      const savedForLater = await userService.getUserCollection(
+        userId,
+        "savedForLater",
       );
-      const [bookmarksSnapshot, favoritesSnapshot, savedForLaterSnapshot] =
-        await Promise.all([
-          bookmarksPromise,
-          favoritesPromise,
-          savedForLaterPromise,
-        ]);
-      const bookmarkIds = bookmarksSnapshot.docs.map(
-        (doc) => doc.data().bookId,
-      );
-      const favoriteIds = favoritesSnapshot.docs.map(
-        (doc) => doc.data().bookId,
-      );
-      const savedForLaterIds = savedForLaterSnapshot.docs.map(
-        (doc) => doc.data().bookId,
-      );
-      const allBookIds = Array.from(
-        new Set([...bookmarkIds, ...favoriteIds, ...savedForLaterIds]),
-      );
-      const booksRef = collection(firestore, "books");
-      const q = query(booksRef, where("id", "in", allBookIds));
-      const booksSnapshot = await getDocs(q);
-      const books: { [id: string]: any } = {};
-      booksSnapshot.forEach((doc) => {
-        books[doc.id] = reduxUtils.normalizeBook({ id: doc.id, ...doc.data() });
-      });
       return {
-        bookmarks: bookmarkIds.map((id) => books[id]).filter(Boolean),
-        favorites: favoriteIds.map((id) => books[id]).filter(Boolean),
-        savedForLater: savedForLaterIds.map((id) => books[id]).filter(Boolean),
+        bookmarks,
+        favorites,
+        savedForLater,
       };
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -151,13 +112,7 @@ export const fetchBookDetail = createAsyncThunk(
   ACTION_TYPES.BOOK.FETCH_DETAIL,
   async (bookId: string, { rejectWithValue }) => {
     try {
-      const docSnap = await getDocs(
-        query(collection(firestore, "books"), where("id", "==", bookId)),
-      );
-      if (docSnap.empty) {
-        throw new Error("Book not found");
-      }
-      return { id: docSnap.docs[0].id, ...docSnap.docs[0].data() } as Book;
+      return await bookService.getBookById(bookId);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -166,14 +121,14 @@ export const fetchBookDetail = createAsyncThunk(
 
 export const fetchSimilarBooks = createAsyncThunk(
   ACTION_TYPES.BOOK.FETCH_SIMILAR,
-  async (bookId: string, { rejectWithValue }) => {
+  async (bookId: string, { getState, rejectWithValue }) => {
     try {
-      const response = await fetch(`/api/similar-books?bookId=${bookId}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch similar books");
+      const state = getState() as RootState;
+      const bookDetails = state.book.currentBookDetail;
+      if (!bookDetails) {
+        throw new Error("Book details not available");
       }
-      const data = await response.json();
-      return data.books as Book[];
+      return await bookService.getSimilarBooks(bookId, bookDetails);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -192,22 +147,7 @@ export const bookmarkBook = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      const collectionName =
-        type === "favorite"
-          ? "favorites"
-          : type === "later"
-            ? "savedForLater"
-            : "bookmarks";
-      const bookmarksRef = collection(
-        firestore,
-        "users",
-        userId,
-        collectionName,
-      );
-      await addDoc(bookmarksRef, {
-        bookId: book.id,
-        timestamp: Date.now(),
-      });
+      await userService.addToCollection(userId, book.id, type as any);
       return { book, type };
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -230,25 +170,7 @@ export const removeBookmarkAsync = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      const collectionName =
-        type === "favorite"
-          ? "favorites"
-          : type === "later"
-            ? "savedForLater"
-            : "bookmarks";
-      const bookmarksRef = collection(
-        firestore,
-        "users",
-        userId,
-        collectionName,
-      );
-      const q = query(bookmarksRef, where("bookId", "==", bookId));
-      const querySnapshot = await getDocs(q);
-      // Delete all matching bookmarks
-      const deletePromises = querySnapshot.docs.map((doc) =>
-        deleteDoc(doc.ref),
-      );
-      await Promise.all(deletePromises);
+      await userService.removeFromCollection(userId, bookId, type as any);
       return { bookId, type };
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -277,20 +199,13 @@ export const submitReview = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      const reviewRef = collection(firestore, "reviews");
-      const newReview = {
+      return await bookService.addBookReview({
         bookId,
         userId,
-        username,
+        userName: username,
         rating,
-        comment,
-        createdAt: Date.now(),
-      };
-      const docRef = await addDoc(reviewRef, newReview);
-      return {
-        id: docRef.id,
-        ...newReview,
-      } as Review;
+        text: comment,
+      });
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -301,18 +216,7 @@ export const fetchBookReviews = createAsyncThunk(
   ACTION_TYPES.BOOK.FETCH_REVIEWS,
   async (bookId: string, { rejectWithValue }) => {
     try {
-      const reviewsRef = collection(firestore, "reviews");
-      const q = query(
-        reviewsRef,
-        where("bookId", "==", bookId),
-        orderBy("createdAt", "desc"),
-      );
-      const querySnapshot = await getDocs(q);
-      const reviews: Review[] = [];
-      querySnapshot.forEach((doc) => {
-        reviews.push({ id: doc.id, ...doc.data() } as Review);
-      });
-      return reviews;
+      return await bookService.getBookReviews(bookId);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -357,21 +261,12 @@ export const provideFeedbackAsync = createAsyncThunk(
       if (!userId) {
         return { bookId, liked, success: true };
       }
-      // For authenticated users, store feedback in Firebase
-      const feedbackRef = collection(firestore, "users", userId, "feedback");
-      await setDoc(doc(feedbackRef, bookId), {
+      // For authenticated users, record feedback
+      await userService.recordUserFeedback(
+        userId,
         bookId,
-        liked,
-        timestamp: Date.now(),
-      });
-      // Also send the feedback to update recommendation model
-      await fetch("/api/feedback", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ userId, bookId, liked }),
-      });
+        liked ? "like" : "dislike",
+      );
       return { bookId, liked, success: true };
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -416,16 +311,11 @@ const bookSlice = createSlice({
       state.reviews = [];
     },
     provideFeedback: (
-      state,
-      action: PayloadAction<{ bookId: string; liked: boolean }>,
+      _state,
+      _action: PayloadAction<{ bookId: string; liked: boolean }>,
     ) => {
       // This is now a direct action without the async part
       // It can be used for immediate UI feedback before provideFeedbackAsync completes
-      const { bookId } = action.payload;
-      const book = state.recommendedBooks.find((b) => b.id === bookId);
-      if (book) {
-        // Optional: Update any UI feedback state here if needed
-      }
     },
   },
   extraReducers: (builder) => {
@@ -445,59 +335,47 @@ const bookSlice = createSlice({
         state.savedForLater = action.payload.savedForLater;
       },
     );
-    builder
-      .addCase(fetchPopularBooks.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchPopularBooks.fulfilled, (state, action) => {
-        state.loading = false;
-        state.books = action.payload;
-      })
-      .addCase(fetchPopularBooks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(searchBooks.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(searchBooks.fulfilled, (state, action) => {
-        state.loading = false;
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      searchBooks,
+      (state, action) => {
         state.recommendedBooks = action.payload;
         state.searchHistory.push({
           query: state.currentSearch,
           options: state.currentSearchOptions,
           timestamp: Date.now(),
         });
-      })
-      .addCase(searchBooks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(fetchBookDetail.pending, (state) => {
-        state.loading = true;
-        state.error = null;
-      })
-      .addCase(fetchBookDetail.fulfilled, (state, action) => {
-        state.loading = false;
+      },
+    );
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      fetchBookDetail,
+      (state, action) => {
         state.currentBookDetail = action.payload;
-      })
-      .addCase(fetchBookDetail.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(fetchSimilarBooks.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(fetchSimilarBooks.fulfilled, (state, action) => {
-        state.loading = false;
+      },
+    );
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      fetchSimilarBooks,
+      (state, action) => {
         state.similarBooks = action.payload;
-      })
-      .addCase(fetchSimilarBooks.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
+      },
+    );
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      fetchBookReviews,
+      (state, action) => {
+        state.reviews = action.payload;
+      },
+    );
+    reduxUtils.createAsyncThunkReducers(
+      builder,
+      regenerateRecommendations,
+      (state, action) => {
+        state.recommendedBooks = action.payload;
+      },
+    );
+    builder
       .addCase(bookmarkBook.fulfilled, (state, action) => {
         const { book, type } = action.payload;
         if (type === "favorite") {
@@ -532,23 +410,6 @@ const bookSlice = createSlice({
       })
       .addCase(submitReview.fulfilled, (state, action) => {
         state.reviews.unshift(action.payload);
-      })
-      .addCase(fetchBookReviews.fulfilled, (state, action) => {
-        state.reviews = action.payload;
-      })
-      .addCase(regenerateRecommendations.pending, (state) => {
-        state.loading = true;
-      })
-      .addCase(regenerateRecommendations.fulfilled, (state, action) => {
-        state.loading = false;
-        state.recommendedBooks = action.payload;
-      })
-      .addCase(regenerateRecommendations.rejected, (state, action) => {
-        state.loading = false;
-        state.error = action.payload as string;
-      })
-      .addCase(provideFeedbackAsync.fulfilled, (_state, _action) => {
-        // Could update local state to reflect feedback was recorded
       });
   },
 });

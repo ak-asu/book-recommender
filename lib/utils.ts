@@ -281,10 +281,42 @@ export const bookUtils = {
   ): string => {
     return stringUtils.truncate(description, maxLength);
   },
-  getBookLengthCategory: (pageCount: number): "short" | "medium" | "long" => {
+  getBookLengthCategory: (
+    pageCount: number,
+  ): "short" | "medium" | "long" | "unknown" => {
+    if (!pageCount) return "unknown";
     if (pageCount < 300) return "short";
     if (pageCount < 500) return "medium";
     return "long";
+  },
+  validateBook: (book: any): boolean => {
+    if (!book) return false;
+    if (!book.title || typeof book.title !== "string") return false;
+    if (!book.author || typeof book.author !== "string") return false;
+    return true;
+  },
+  normalizeBook: (book: any): any => {
+    if (!book) return null;
+    return {
+      id:
+        book.id ||
+        `unknown-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      title: book.title || "Unknown Title",
+      author: book.author || "Unknown Author",
+      publicationDate: book.publicationDate || "Unknown",
+      description: book.description || "No description available",
+      genres: Array.isArray(book.genres)
+        ? book.genres
+        : book.genre
+          ? [book.genre]
+          : [],
+      rating: typeof book.rating === "number" ? book.rating : 0,
+      reviewCount: typeof book.reviewCount === "number" ? book.reviewCount : 0,
+      pageCount: typeof book.pageCount === "number" ? book.pageCount : 0,
+      imageUrl: book.imageUrl || book.image || "/images/default-book-cover.jpg",
+      buyLinks: book.buyLinks || {},
+      readLinks: book.readLinks || {},
+    };
   },
 };
 

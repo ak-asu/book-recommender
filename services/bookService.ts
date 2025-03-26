@@ -18,9 +18,13 @@ import { firestore } from "@/lib/firebase";
 import { Book, PaginatedResult, BookQuery, ReviewData } from "@/types/book";
 import { aiUtils, cacheUtils, miscUtils } from "@/lib/utils";
 import { API, SEARCH, MESSAGES, FIREBASE_COLLECTIONS } from "@/lib/constants";
+import { ErrorCategory, logError } from "@/lib/errorHandler";
+import { withErrorHandling } from "@/services/errorService";
+import { AIProviderFactory } from "@/lib/genai";
 
-export const getBookById = async (id: string): Promise<Book> => {
-  try {
+// Wrap functions with error handling
+export const getBookById = withErrorHandling(
+  async (id: string): Promise<Book> => {
     const bookDoc = await getDoc(
       doc(firestore, FIREBASE_COLLECTIONS.BOOKS, id),
     );
@@ -28,15 +32,12 @@ export const getBookById = async (id: string): Promise<Book> => {
       throw new Error(MESSAGES.ERRORS.BOOK.NOT_FOUND);
     }
     return { id: bookDoc.id, ...(bookDoc.data() as Omit<Book, "id">) };
-  } catch (error) {
-    throw error;
-  }
-};
+  },
+  ErrorCategory.BOOK,
+);
 
-export const searchBooks = async (
-  bookQuery: BookQuery = {},
-): Promise<PaginatedResult<Book>> => {
-  try {
+export const searchBooks = withErrorHandling(
+  async (bookQuery: BookQuery = {}): Promise<PaginatedResult<Book>> => {
     const {
       genres,
       minRating,
@@ -46,8 +47,8 @@ export const searchBooks = async (
       lastDoc,
       pageSize = SEARCH.PAGINATION_SIZE,
     } = bookQuery;
-    let booksRef = collection(firestore, FIREBASE_COLLECTIONS.BOOKS);
     let constraints = [];
+    const booksRef = collection(firestore, FIREBASE_COLLECTIONS.BOOKS);
     if (genres && genres.length > 0) {
       constraints.push(where("genres", "array-contains-any", genres));
     }
@@ -58,8 +59,6 @@ export const searchBooks = async (
       constraints.push(where("pageCount", "<=", maxPages));
     }
     if (searchTerm) {
-      // For proper text search, you might need a service like Algolia or Elasticsearch
-      // This is a simple implementation that works for exact matches
       constraints.push(where("title", ">=", searchTerm));
       constraints.push(where("title", "<=", searchTerm + "\uf8ff"));
     }
@@ -92,31 +91,29 @@ export const searchBooks = async (
       lastDoc: lastVisible,
       hasMore: querySnapshot.docs.length === pageSize,
     };
-  } catch (error) {
-    throw error;
-  }
-};
+  },
+  ErrorCategory.BOOK,
+);
 
-export const getSimilarBooks = async (
-  bookId: string,
-  bookDetails: Book,
-  forceRefresh = false,
-): Promise<Book[]> => {
-  try {
+export const getSimilarBooks = withErrorHandling(
+  async (
+    bookId: string,
+    bookDetails: Book,
+    forceRefresh = false,
+  ): Promise<Book[]> => {
     if (!forceRefresh) {
       const cachedRecsDoc = await getDoc(
         doc(firestore, FIREBASE_COLLECTIONS.BOOK_RECOMMENDATIONS, bookId),
       );
       if (cachedRecsDoc.exists()) {
         const cachedData = cachedRecsDoc.data();
-        // Check if cache is less than 24 hours old
         const cacheTime = cachedData.timestamp?.toDate() || new Date(0);
         if (!cacheUtils.isCacheExpired(cacheTime)) {
           return cachedData.recommendations || [];
         }
       }
     }
-    // Approach 1: Get similar books by genres (for quick results)
+    // Get similar books by genres
     const genreQuery = query(
       collection(firestore, FIREBASE_COLLECTIONS.BOOKS),
       where("genres", "array-contains-any", bookDetails.genres || []),
@@ -129,7 +126,7 @@ export const getSimilarBooks = async (
       id: doc.id,
       ...doc.data(),
     })) as Book[];
-    // Approach 2: Use OpenAI for enhanced recommendations if genre-based results are insufficient
+    // Use OpenAI for enhanced recommendations if genre-based results are insufficient
     if (similarBooks.length < SEARCH.RECOMMENDATION_COUNT / 2) {
       try {
         const openAIRecommendations = await getAISimilarBooks(bookDetails);
@@ -156,7 +153,9 @@ export const getSimilarBooks = async (
           },
         );
         return combinedBooks;
-      } catch {}
+      } catch (error) {
+        logError(error, "AI Similar Books");
+      }
     }
     await setDoc(
       doc(firestore, FIREBASE_COLLECTIONS.BOOK_RECOMMENDATIONS, bookId),
@@ -166,49 +165,48 @@ export const getSimilarBooks = async (
       },
     );
     return similarBooks;
-  } catch (error) {
-    throw error;
-  }
-};
+  },
+  ErrorCategory.BOOK,
+);
 
-async function getAISimilarBooks(book: Book): Promise<Book[]> {
-  const prompt = aiUtils.getSimilarBooksPrompt(book);
-  const response = await openai.createChatCompletion({
-    model: API.OPENAI.MODEL,
-    messages: [
-      { role: "system", content: "You are a helpful literary assistant." },
-      { role: "user", content: prompt },
-    ],
-    temperature: 0.7,
-    max_tokens: 1000,
-  });
-  const content = response.data.choices[0]?.message?.content || "";
-  const jsonMatch = content.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) return [];
-  try {
-    const books = JSON.parse(jsonMatch[0]);
-    return books.map((recommendation: any) => ({
-      id: `ai-${book.title.toLowerCase().replace(/\s+/g, "-")}-${recommendation.title.toLowerCase().replace(/\s+/g, "-")}-${miscUtils.generateRandomId(6)}`,
-      title: recommendation.title,
-      author: recommendation.author,
-      publicationDate: recommendation.publicationDate || "Unknown",
-      genres:
-        recommendation.genres ||
-        recommendation.genre?.split(",").map((g: string) => g.trim()) ||
-        [],
-      description: recommendation.description || "No description available",
-      rating: recommendation.rating || 0,
-      reviewCount: recommendation.reviewCount || 0,
-      imageUrl: recommendation.imageUrl || "/images/default-book-cover.jpg",
-      pageCount: recommendation.pageCount || 0,
-    }));
-  } catch {
-    return [];
-  }
-}
+const getAISimilarBooks = withErrorHandling(
+  async (book: Book): Promise<Book[]> => {
+    const prompt = aiUtils.getSimilarBooksPrompt(book);
+    const aiProvider = AIProviderFactory.getProvider("openai", {
+      model: API.OPENAI.MODEL,
+      temperature: 0.7,
+      maxTokens: 1000,
+    });
+    try {
+      const response = await aiProvider.getRecommendations(prompt);
+      if (!response || !response.recommendations) {
+        return [];
+      }
+      return response.recommendations.map((recommendation: any) => ({
+        id: `ai-${book.title.toLowerCase().replace(/\s+/g, "-")}-${recommendation.title.toLowerCase().replace(/\s+/g, "-")}-${miscUtils.generateRandomId(6)}`,
+        title: recommendation.title,
+        author: recommendation.author,
+        publicationDate: recommendation.publicationDate || "Unknown",
+        genres:
+          recommendation.genres ||
+          recommendation.genre?.split(",").map((g: string) => g.trim()) ||
+          [],
+        description: recommendation.description || "No description available",
+        rating: recommendation.rating || 0,
+        reviewCount: recommendation.reviewCount || 0,
+        imageUrl: recommendation.imageUrl || "/images/default-book-cover.jpg",
+        pageCount: recommendation.pageCount || 0,
+      }));
+    } catch (error) {
+      logError(error, "Parse AI Books Response");
+      return [];
+    }
+  },
+  ErrorCategory.API,
+);
 
-export const getBookReviews = async (bookId: string) => {
-  try {
+export const getBookReviews = withErrorHandling(
+  async (bookId: string): Promise<any[]> => {
     const q = query(
       collection(firestore, FIREBASE_COLLECTIONS.REVIEWS),
       where("bookId", "==", bookId),
@@ -227,13 +225,12 @@ export const getBookReviews = async (bookId: string) => {
         createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
       };
     });
-  } catch (error) {
-    throw error;
-  }
-};
+  },
+  ErrorCategory.BOOK,
+);
 
-export const addBookReview = async (reviewData: ReviewData) => {
-  try {
+export const addBookReview = withErrorHandling(
+  async (reviewData: ReviewData): Promise<any> => {
     const docRef = await addDoc(
       collection(firestore, FIREBASE_COLLECTIONS.REVIEWS),
       {
@@ -259,16 +256,19 @@ export const addBookReview = async (reviewData: ReviewData) => {
         reviewCount: currentReviewCount + 1,
       });
     }
-    return { id: docRef.id };
-  } catch (error) {
-    throw error;
-  }
-};
+    return {
+      id: docRef.id,
+      ...reviewData,
+      createdAt: Date.now(),
+    };
+  },
+  ErrorCategory.BOOK,
+);
 
-export const getPopularBooks = async (
-  limit = SEARCH.POPULAR_BOOKS_LIMIT,
-): Promise<PaginatedResult<Book>> => {
-  try {
+export const getPopularBooks = withErrorHandling(
+  async (
+    limit = SEARCH.POPULAR_BOOKS_LIMIT,
+  ): Promise<PaginatedResult<Book>> => {
     const q = query(
       collection(firestore, FIREBASE_COLLECTIONS.BOOKS),
       orderBy("rating", "desc"),
@@ -298,7 +298,6 @@ export const getPopularBooks = async (
       lastDoc: querySnapshot.docs[querySnapshot.docs.length - 1] || null,
       hasMore: querySnapshot.docs.length === limit,
     };
-  } catch (error) {
-    throw error;
-  }
-};
+  },
+  ErrorCategory.BOOK,
+);

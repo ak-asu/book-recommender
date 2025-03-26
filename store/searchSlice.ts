@@ -4,8 +4,9 @@ import { RootState } from "./store";
 
 import { SearchHistoryItem, ConversationItem } from "@/types/search";
 import { SearchOptions } from "@/types/search";
-import { miscUtils, storageUtils, exportUtils } from "@/lib/utils";
+import { miscUtils } from "@/lib/utils";
 import { ACTION_TYPES, MESSAGE_TYPES } from "@/lib/constants";
+import * as conversationService from "@/services/conversationService";
 
 interface SearchState {
   query: string;
@@ -38,18 +39,10 @@ export const exportConversation = createAsyncThunk(
       if (conversation.length === 0) {
         throw new Error("No conversation to export");
       }
-      const formatTextConversation = (data: ConversationItem[]): string => {
-        return data
-          .map((item) => {
-            return `[${new Date(item.timestamp).toLocaleString()}] ${item.type === MESSAGE_TYPES.QUERY ? "You" : "BookRecommender"}: ${item.content}`;
-          })
-          .join("\n\n");
-      };
-      return await exportUtils.exportData(
+      return await conversationService.exportConversation(
         conversation,
         format,
-        "book-recommendations",
-        formatTextConversation,
+        false,
       );
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -66,11 +59,7 @@ export const shareConversation = createAsyncThunk(
       if (conversation.length === 0) {
         throw new Error("No conversation to share");
       }
-      return await exportUtils.shareData(
-        conversation,
-        "Book Recommendations",
-        "Check out these book recommendations!",
-      );
+      return await conversationService.shareConversation(conversation, false);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -109,7 +98,7 @@ const searchSlice = createSlice({
       });
       state.historyIndex = state.history.length - 1;
       // Save for guest users
-      storageUtils.saveConversation(state.conversation);
+      conversationService.saveSearchConversation(state.conversation);
     },
     addResultToConversation: (state, action: PayloadAction<string>) => {
       const content = action.payload;
@@ -122,7 +111,7 @@ const searchSlice = createSlice({
         timestamp,
       });
       // Save for guest users
-      storageUtils.saveConversation(state.conversation);
+      conversationService.saveSearchConversation(state.conversation);
     },
     clearHistory: (state) => {
       state.history = [];
@@ -150,7 +139,7 @@ const searchSlice = createSlice({
     },
     restoreConversation: (state) => {
       try {
-        const storedConversation = storageUtils.getConversation();
+        const storedConversation = conversationService.getSearchConversation();
         if (storedConversation.length > 0) {
           state.conversation = storedConversation;
           // Rebuild history from conversation

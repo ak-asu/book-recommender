@@ -2,6 +2,8 @@ import OpenAI from "openai";
 
 import { AIProvider, AIProviderOptions, RecommendationResponse } from "./base";
 
+import { AI_PROMPTS } from "@/lib/constants";
+
 export class OpenAIProvider extends AIProvider {
   private client: OpenAI;
 
@@ -21,6 +23,7 @@ export class OpenAIProvider extends AIProvider {
           {
             role: "system",
             content:
+              AI_PROMPTS.SYSTEM_ROLE ||
               "You are a book recommendation assistant. Provide book recommendations based on the user's query and preferences.",
           },
           { role: "user", content: formattedPrompt },

@@ -3,9 +3,11 @@ import { createAsyncThunk } from "@reduxjs/toolkit";
 import { RootState } from "./store";
 
 import { ACTION_TYPES } from "@/lib/constants";
-import { exportUtils } from "@/lib/utils";
 import { ConversationItem } from "@/types/search";
-import { Message, MessageType } from "@/types/chat";
+import { Message } from "@/types/chat";
+import * as conversationService from "@/services/conversationService";
+import { handleRejection } from "@/services/errorService";
+import { ErrorCategory } from "@/lib/errorHandler";
 
 export const createExportThunk = (sliceName: "search" | "chat") =>
   createAsyncThunk(
@@ -22,30 +24,13 @@ export const createExportThunk = (sliceName: "search" | "chat") =>
         if (items.length === 0) {
           throw new Error(`No ${sliceName} content to export`);
         }
-        const formatTextContent = (data: any[]): string => {
-          return data
-            .map((item) => {
-              const timestamp = new Date(item.timestamp).toLocaleString();
-              const sender =
-                sliceName === "search"
-                  ? item.type === "query"
-                    ? "You"
-                    : "BookRecommender"
-                  : item.sender === "user"
-                    ? "You"
-                    : "BookRecommender";
-              return `[${timestamp}] ${sender}: ${item.content}`;
-            })
-            .join("\n\n");
-        };
-        return await exportUtils.exportData(
+        return await conversationService.exportConversation(
           items,
           format,
-          sliceName === "search" ? "book-recommendations" : "chat-session",
-          formatTextContent,
+          sliceName === "chat",
         );
       } catch (error) {
-        return rejectWithValue((error as Error).message);
+        return rejectWithValue(handleRejection(error, ErrorCategory.DATA));
       }
     },
   );
@@ -65,13 +50,12 @@ export const createShareThunk = (sliceName: "search" | "chat") =>
         if (items.length === 0) {
           throw new Error(`No ${sliceName} content to share`);
         }
-        return await exportUtils.shareData(
+        return await conversationService.shareConversation(
           items,
-          sliceName === "search" ? "Book Recommendations" : "Chat Session",
-          `Check out these ${sliceName === "search" ? "book recommendations" : "chat messages"}!`,
+          sliceName === "chat",
         );
       } catch (error) {
-        return rejectWithValue((error as Error).message);
+        return rejectWithValue(handleRejection(error, ErrorCategory.DATA));
       }
     },
   );
@@ -79,27 +63,11 @@ export const createShareThunk = (sliceName: "search" | "chat") =>
 export const convertSearchToChatMessages = (
   items: ConversationItem[],
 ): Message[] => {
-  return items.map((item) => ({
-    id: item.id,
-    type:
-      item.type === "query"
-        ? ("text" as MessageType)
-        : ("bookRecommendation" as MessageType),
-    content: item.content,
-    timestamp: item.timestamp,
-    sender: item.type === "query" ? "user" : "system",
-    metadata: item.options ? { queryOptions: item.options } : undefined,
-  }));
+  return conversationService.convertSearchToChatMessages(items);
 };
 
 export const convertChatToSearchMessages = (
   items: Message[],
 ): ConversationItem[] => {
-  return items.map((item) => ({
-    id: item.id,
-    type: item.type === "query" ? "query" : "result",
-    content: item.content,
-    timestamp: item.timestamp,
-    options: item.metadata?.queryOptions,
-  }));
+  return conversationService.convertChatToSearchMessages(items);
 };

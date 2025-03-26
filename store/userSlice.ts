@@ -1,21 +1,11 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
-import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  GoogleAuthProvider,
-  signOut,
-  updateProfile,
-  sendPasswordResetEmail,
-} from "firebase/auth";
-import { doc, setDoc, getDoc, updateDoc } from "firebase/firestore";
 
 import { RootState } from "./store";
 
-import { auth, firestore } from "@/lib/firebase";
 import { User, UserPreferences } from "@/types/user";
-import { ACTION_TYPES, DEFAULT_VALUES } from "@/lib/constants";
-import { firebaseUtils, reduxUtils } from "@/lib/utils";
+import { ACTION_TYPES } from "@/lib/constants";
+import { reduxUtils } from "@/lib/utils";
+import * as authService from "@/services/authService";
 
 interface LoginCredentials {
   email: string;
@@ -41,22 +31,7 @@ export const registerUser = createAsyncThunk(
   ACTION_TYPES.USER.REGISTER,
   async (data: RegistrationData, { rejectWithValue }) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password,
-      );
-      await updateProfile(userCredential.user, {
-        displayName: data.displayName,
-      });
-      const userRef = doc(firestore, "users", userCredential.user.uid);
-      await setDoc(userRef, {
-        email: data.email,
-        displayName: data.displayName,
-        createdAt: new Date().toISOString(),
-        preferences: DEFAULT_VALUES.USER_PREFERENCES,
-      });
-      return firebaseUtils.formatUser(userCredential.user);
+      return await authService.registerUser(data);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -67,22 +42,7 @@ export const loginUser = createAsyncThunk(
   ACTION_TYPES.USER.LOGIN,
   async (credentials: LoginCredentials, { rejectWithValue }) => {
     try {
-      const userCredential = await signInWithEmailAndPassword(
-        auth,
-        credentials.email,
-        credentials.password,
-      );
-      const userRef = doc(firestore, "users", userCredential.user.uid);
-      const userDoc = await getDoc(userRef);
-      let preferences = DEFAULT_VALUES.USER_PREFERENCES;
-      if (userDoc.exists()) {
-        preferences =
-          userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-      }
-      await updateDoc(userRef, {
-        lastLogin: new Date().toISOString(),
-      });
-      return firebaseUtils.formatUser(userCredential.user, preferences);
+      return await authService.loginUser(credentials);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -93,27 +53,7 @@ export const loginWithGoogle = createAsyncThunk(
   ACTION_TYPES.USER.GOOGLE_LOGIN,
   async (_, { rejectWithValue }) => {
     try {
-      const provider = new GoogleAuthProvider();
-      const userCredential = await signInWithPopup(auth, provider);
-      const userRef = doc(firestore, "users", userCredential.user.uid);
-      const userDoc = await getDoc(userRef);
-      let preferences = DEFAULT_VALUES.USER_PREFERENCES;
-      if (userDoc.exists()) {
-        preferences =
-          userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-        await updateDoc(userRef, {
-          lastLogin: new Date().toISOString(),
-        });
-      } else {
-        await setDoc(userRef, {
-          email: userCredential.user.email,
-          displayName: userCredential.user.displayName,
-          photoURL: userCredential.user.photoURL,
-          createdAt: new Date().toISOString(),
-          preferences: DEFAULT_VALUES.USER_PREFERENCES,
-        });
-      }
-      return firebaseUtils.formatUser(userCredential.user, preferences);
+      return await authService.loginWithGoogle();
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -124,7 +64,7 @@ export const logoutUser = createAsyncThunk(
   ACTION_TYPES.USER.LOGOUT,
   async (_, { rejectWithValue }) => {
     try {
-      await signOut(auth);
+      await authService.logoutUser();
       return null;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -144,18 +84,7 @@ export const updateUserPreferences = createAsyncThunk(
       if (!userId) {
         throw new Error("User not authenticated");
       }
-      const userRef = doc(firestore, "users", userId);
-      const userDoc = await getDoc(userRef);
-      if (!userDoc.exists()) {
-        throw new Error("User profile not found");
-      }
-      const currentPreferences =
-        userDoc.data().preferences || DEFAULT_VALUES.USER_PREFERENCES;
-      const updatedPreferences = { ...currentPreferences, ...preferences };
-      await updateDoc(userRef, {
-        preferences: updatedPreferences,
-      });
-      return updatedPreferences;
+      return await authService.updateUserPreferences(userId, preferences);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }
@@ -166,7 +95,7 @@ export const resetPassword = createAsyncThunk(
   ACTION_TYPES.USER.RESET_PASSWORD,
   async (email: string, { rejectWithValue }) => {
     try {
-      await sendPasswordResetEmail(auth, email);
+      await authService.resetPassword(email);
       return email;
     } catch (error) {
       return rejectWithValue((error as Error).message);
@@ -178,27 +107,10 @@ export const updateUserProfile = createAsyncThunk(
   ACTION_TYPES.USER.UPDATE_PROFILE,
   async (
     { displayName, photoURL }: { displayName?: string; photoURL?: string },
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    { rejectWithValue, getState },
+    { rejectWithValue },
   ) => {
     try {
-      const currentUser = auth.currentUser;
-      if (!currentUser) {
-        throw new Error("User not authenticated");
-      }
-      await updateProfile(currentUser, {
-        displayName: displayName || currentUser.displayName,
-        photoURL: photoURL || currentUser.photoURL,
-      });
-      const userRef = doc(firestore, "users", currentUser.uid);
-      const updateData: Record<string, any> = {};
-      if (displayName) updateData.displayName = displayName;
-      if (photoURL) updateData.photoURL = photoURL;
-      await updateDoc(userRef, updateData);
-      return {
-        displayName: displayName || currentUser.displayName,
-        photoURL: photoURL || currentUser.photoURL,
-      };
+      return await authService.updateUserProfile(displayName, photoURL);
     } catch (error) {
       return rejectWithValue((error as Error).message);
     }

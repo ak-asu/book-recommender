@@ -12,14 +12,10 @@ import {
 import { firestore } from "@/lib/firebase";
 import { BookRecommendation } from "@/types/book";
 import { UserPreferences } from "@/types/user";
-import {
-  API,
-  AI_PROMPTS,
-  FIREBASE_COLLECTIONS,
-  MESSAGES,
-} from "@/lib/constants";
+import { API, FIREBASE_COLLECTIONS, MESSAGES } from "@/lib/constants";
 import { aiUtils } from "@/lib/utils";
 import { SearchQuery } from "@/types/search";
+import { AIProviderFactory } from "@/lib/genai";
 
 export const getBookRecommendations = async (
   searchQuery: SearchQuery,
@@ -28,29 +24,17 @@ export const getBookRecommendations = async (
 ): Promise<BookRecommendation[]> => {
   try {
     const prompt = aiUtils.buildPrompt(searchQuery, userPreferences);
-    const response = await openai.createChatCompletion({
+    const aiProvider = AIProviderFactory.getProvider("openai", {
       model: API.OPENAI.MODEL,
-      messages: [
-        {
-          role: "system",
-          content: AI_PROMPTS.SYSTEM_ROLE,
-        },
-        {
-          role: "user",
-          content: prompt,
-        },
-      ],
       temperature: API.OPENAI.TEMPERATURE,
-      max_tokens: API.OPENAI.MAX_TOKENS,
-      top_p: 1,
-      frequency_penalty: 0,
-      presence_penalty: 0,
+      maxTokens: API.OPENAI.MAX_TOKENS,
     });
-    const recommendations = aiUtils.parseRecommendations(
-      response.data.choices[0]?.message?.content || "",
-    );
-    await saveSearchHistory(searchQuery, recommendations, userId);
-    return recommendations;
+    const response = await aiProvider.getRecommendations(prompt);
+    if (!response || !response.recommendations) {
+      throw new Error(MESSAGES.ERRORS.RECOMMENDATIONS.FAILED);
+    }
+    await saveSearchHistory(searchQuery, response.recommendations, userId);
+    return response.recommendations;
   } catch {
     throw new Error(MESSAGES.ERRORS.RECOMMENDATIONS.FAILED);
   }

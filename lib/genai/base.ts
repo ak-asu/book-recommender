@@ -1,3 +1,5 @@
+import { BookRecommendation } from "@/types/book";
+
 export interface AIProviderOptions {
   apiKey?: string;
   model?: string;
@@ -5,87 +7,95 @@ export interface AIProviderOptions {
   maxTokens?: number;
 }
 
-export interface BookRecommendation {
-  title: string;
-  author: string;
-  description: string;
-  image?: string;
-  rating?: number;
-  id?: string;
-  genres?: string[];
-  publicationDate?: string;
-  pageCount?: number;
-}
-
 export interface RecommendationResponse {
-  books: BookRecommendation[];
+  recommendations: BookRecommendation[];
+  raw?: any;
 }
 
 export abstract class AIProvider {
   protected options: AIProviderOptions;
 
-  constructor(options: AIProviderOptions) {
+  constructor(options: AIProviderOptions = {}) {
     this.options = {
       temperature: 0.7,
-      maxTokens: 1500,
+      maxTokens: 2048,
       ...options,
     };
   }
 
   abstract getRecommendations(prompt: string): Promise<RecommendationResponse>;
 
-  protected formatPrompt(basePrompt: string): string {
-    return `${basePrompt}
-    
-    Please respond with recommendations in this JSON format:
-    {
-      "books": [
-        {
-          "title": "Book Title",
-          "author": "Author Name",
-          "description": "A brief description of the book",
-          "genres": ["Genre1", "Genre2"],
-          "rating": 4.5
-        }
-      ]
-    }`;
+  protected formatPrompt(prompt: string): string {
+    return `${prompt}\n\nPlease provide recommendations in valid JSON format with the following properties for each book: title, author, publicationDate, description, genres (array), rating (number), reviewCount (number), pageCount (number), and imageUrl.`;
   }
 
   protected parseBookRecommendations(content: string): RecommendationResponse {
     try {
-      const jsonMatch = content.match(/```json([\s\S]*?)```/);
-      if (jsonMatch && jsonMatch[1]) {
-        return JSON.parse(jsonMatch[1].trim());
-      }
-      return JSON.parse(content);
-    } catch {
-      // Fallback parsing with regex for book entries
-      const books: BookRecommendation[] = [];
-      const titleMatches = content.matchAll(/Title: (.*?)(?:\n|$)/g);
-      const authorMatches = content.matchAll(/Author: (.*?)(?:\n|$)/g);
-      const descriptionMatches = content.matchAll(
-        /Description: ([\s\S]*?)(?:\n\n|$)/g,
-      );
-      const titles = Array.from(titleMatches).map((match) => match[1].trim());
-      const authors = Array.from(authorMatches).map((match) => match[1].trim());
-      const descriptions = Array.from(descriptionMatches).map((match) =>
-        match[1].trim(),
-      );
-      for (
-        let i = 0;
-        i < Math.min(titles.length, authors.length, descriptions.length);
-        i++
+      let jsonContent = content;
+      // If the content is a string that might contain JSON
+      if (
+        typeof content === "string" &&
+        !content.trim().startsWith("{") &&
+        !content.trim().startsWith("[")
       ) {
-        books.push({
-          title: titles[i],
-          author: authors[i],
-          description: descriptions[i],
-          image: `/images/placeholder-book.png`,
-          rating: 4.0,
-          id: `placeholder-${i}`,
-        });
+        const jsonMatch = content.match(/\{[\s\S]*\}|\[[\s\S]*\]/);
+        if (jsonMatch) {
+          jsonContent = jsonMatch[0];
+        }
       }
-      return { books };
+      const parsedData =
+        typeof jsonContent === "string" ? JSON.parse(jsonContent) : jsonContent;
+      // Handle different response formats
+      let recommendations: BookRecommendation[] = [];
+      if (Array.isArray(parsedData)) {
+        recommendations = parsedData;
+      } else if (parsedData.books && Array.isArray(parsedData.books)) {
+        recommendations = parsedData.books;
+      } else if (
+        parsedData.recommendations &&
+        Array.isArray(parsedData.recommendations)
+      ) {
+        recommendations = parsedData.recommendations;
+      } else if (parsedData.data && Array.isArray(parsedData.data)) {
+        recommendations = parsedData.data;
+      } else {
+        recommendations = [parsedData]; // If it's a single book object
+      }
+      const normalizedRecommendations = recommendations.map((book: any) => {
+        const id =
+          book.id ||
+          `book-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+        return {
+          id,
+          title: book.title || "Unknown Title",
+          author: book.author || "Unknown Author",
+          publicationDate: book.publicationDate || "Unknown",
+          description: book.description || "No description available",
+          genres: Array.isArray(book.genres)
+            ? book.genres
+            : book.genre && typeof book.genre !== "undefined"
+              ? [book.genre]
+              : [],
+          rating: typeof book.rating === "number" ? book.rating : 0,
+          reviewCount:
+            typeof book.reviewCount === "number" ? book.reviewCount : 0,
+          pageCount: typeof book.pageCount === "number" ? book.pageCount : 0,
+          imageUrl:
+            book.imageUrl ||
+            (book.image && typeof book.image !== "undefined"
+              ? book.image
+              : "/images/default-book-cover.jpg"),
+          buyLinks: book.buyLinks || {},
+          readLinks: book.readLinks || {},
+          timestamp: new Date().toISOString(),
+        };
+      });
+      return {
+        recommendations: normalizedRecommendations,
+        raw: parsedData,
+      };
+    } catch {
+      return { recommendations: [], raw: content };
     }
   }
 }
