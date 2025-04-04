@@ -10,24 +10,16 @@ import PopularBooks from "@/components/recommendations/PopularBooks";
 import { useAuth } from "@/hooks/useAuth";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import Container from "@/components/ui/Container";
-
-interface SearchOptions {
-  genres?: string[];
-  mood?: string;
-  length?: "short" | "medium" | "long";
-}
-
-interface HistoryEntry {
-  query: string;
-  options: SearchOptions;
-  results: any[];
-}
+import { SearchOptions, SearchHistoryItem } from "@/types/search";
+import { sendMessage } from "@/store/chatSlice";
+import { useAppDispatch } from "@/hooks/useAppDispatch";
 
 const HomePage = () => {
+  const dispatch = useAppDispatch();
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [history, setHistory] = useState<HistoryEntry[]>([]);
+  const [history, setHistory] = useState<SearchHistoryItem[]>([]);
   const [currentHistoryIndex, setCurrentHistoryIndex] = useState(-1);
   const [hasSearched, setHasSearched] = useState(false);
   const { user } = useAuth();
@@ -61,23 +53,23 @@ const HomePage = () => {
       setIsSearching(true);
       setError(null);
       setHasSearched(true);
-      const response = await fetch("/api/chat/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          message: query,
-          options,
-          userId: user?.uid || "guest",
-        }),
-      });
-      if (!response.ok) {
+      const data = await dispatch(
+        sendMessage({ content: query, options }),
+      ).unwrap();
+      if (!data.sessionId) {
         throw new Error("Failed to create chat");
       }
-      const data = await response.json();
-      router.push(`/chat/${data.chatId}`);
-      const newEntry = { query, options, results: data.recommendations || [] };
+      router.push(`/chat/${data.sessionId}`);
+      const newEntry: SearchHistoryItem = {
+        id: data.sessionId,
+        query,
+        options,
+        results:
+          data.messages
+            .map((msg) => msg.metadata?.books?.[0])
+            .filter((e) => e !== undefined) || [],
+        timestamp: new Date().getTime(),
+      };
       if (currentHistoryIndex < history.length - 1) {
         setHistory((prev) => [
           ...prev.slice(0, currentHistoryIndex + 1),

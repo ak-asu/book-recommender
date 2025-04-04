@@ -1,3 +1,5 @@
+import { Book } from "./book";
+
 import { MESSAGE_TYPES } from "@/lib/constants";
 
 export interface SearchQuery {
@@ -9,7 +11,7 @@ export interface SearchQuery {
 }
 
 export interface SearchOptions {
-  genre?: string;
+  genres?: string[];
   length?: "short" | "medium" | "long";
   mood?: string;
   timeFrame?: string;
@@ -22,12 +24,7 @@ export interface SearchHistoryItem {
   options: SearchOptions;
   timestamp: number;
   userId?: string;
-  results?: {
-    id: string;
-    title: string;
-    author: string;
-    imageUrl?: string;
-  }[];
+  results?: Book[];
 }
 
 export interface ConversationItem {

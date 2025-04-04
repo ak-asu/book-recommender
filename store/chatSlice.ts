@@ -7,7 +7,7 @@ import { miscUtils } from "@/lib/utils";
 import { ACTION_TYPES } from "@/lib/constants";
 import * as conversationService from "@/services/conversationService";
 
-interface ChatState {
+export interface ChatState {
   messages: Message[];
   activeSession: string | null;
   sessions: {

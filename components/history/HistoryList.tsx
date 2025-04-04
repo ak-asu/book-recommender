@@ -20,7 +20,6 @@ import {
   Download as DownloadIcon,
 } from "lucide-react";
 
-import { ROUTES } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 
 interface ChatHistory {
@@ -113,7 +112,7 @@ const HistoryList = ({
   };
 
   const navigateToChat = (id: string) => {
-    router.push(`${ROUTES.CHAT}/${id}`);
+    router.push(`chat/${id}`);
   };
 
   if (isLoading) {
@@ -145,7 +144,7 @@ const HistoryList = ({
           <Button
             className="mt-4"
             color="primary"
-            onClick={() => router.push(ROUTES.HOME)}
+            onClick={() => router.push('/')}
           >
             Get Recommendations
           </Button>

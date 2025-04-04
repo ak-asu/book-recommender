@@ -1,33 +1,12 @@
 "use client";
 
-import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Card, CardBody, CardHeader, Divider } from "@heroui/react";
+import { Card, CardBody, CardHeader } from "@heroui/react";
 
 import RegisterForm from "@/components/auth/RegisterForm";
-import { useAuth } from "@/hooks/useAuth";
-import { GoogleIcon } from "@/components/icons";
 
 export default function RegisterPage() {
-  const { signInWithGoogle } = useAuth();
-  const [googleError, setGoogleError] = useState<string | null>(null);
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const router = useRouter();
-
-  const handleGoogleRegister = async () => {
-    setIsGoogleLoading(true);
-    setGoogleError(null);
-    try {
-      await signInWithGoogle();
-      router.push("/");
-    } catch (err: any) {
-      setGoogleError(
-        err.message || "Failed to register with Google. Please try again.",
-      );
-    } finally {
-      setIsGoogleLoading(false);
-    }
-  };
 
   return (
     <div className="flex justify-center items-center min-h-screen px-4">
@@ -40,21 +19,6 @@ export default function RegisterPage() {
             redirectPath="/"
             onSwitchToLogin={() => router.push("/login")}
           />
-          <Divider className="my-4" />
-          {googleError && (
-            <div className="mb-3">
-              <p className="text-danger text-small">{googleError}</p>
-            </div>
-          )}
-          <Button
-            className="w-full"
-            isLoading={isGoogleLoading}
-            startContent={!isGoogleLoading && <GoogleIcon />}
-            variant="bordered"
-            onPress={handleGoogleRegister}
-          >
-            Continue with Google
-          </Button>
         </CardBody>
       </Card>
     </div>

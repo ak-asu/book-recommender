@@ -1,3 +1,5 @@
+"use client";
+
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody, Tabs, Tab, Spinner } from "@heroui/react";
 
@@ -5,13 +7,8 @@ import Container from "@/components/ui/Container";
 import BookList from "@/components/book/BookList";
 import { useAuth } from "@/hooks/useAuth";
 import {
-  getUserBookmarks,
-  getUserFavorites,
-  getSavedForLater,
+  removeFromCollection,
 } from "@/services/userService";
-import LoginPrompt from "@/components/auth/LoginPrompt";
-
-("use client");
 
 interface Book {
   id: string;
@@ -44,20 +41,20 @@ export default function BooksPage() {
         setLoading(true);
         setError(null);
         const loadData = async () => {
-          switch (activeTab) {
-            case "favorites":
-              const favoritesData = await getUserFavorites(user.uid);
-              setFavorites(favoritesData);
-              break;
-            case "bookmarks":
-              const bookmarksData = await getUserBookmarks(user.uid);
-              setBookmarks(bookmarksData);
-              break;
-            case "saved":
-              const savedData = await getSavedForLater(user.uid);
-              setSavedForLater(savedData);
-              break;
-          }
+          // switch (activeTab) {
+          //   case "favorites":
+          //     const favoritesData = await getUserFavorites(user.uid);
+          //     setFavorites(favoritesData);
+          //     break;
+          //   case "bookmarks":
+          //     const bookmarksData = await getUserBookmarks(user.uid);
+          //     setBookmarks(bookmarksData);
+          //     break;
+          //   case "saved":
+          //     const savedData = await getSavedForLater(user.uid);
+          //     setSavedForLater(savedData);
+          //     break;
+          // }
         };
         await loadData();
       } catch {
@@ -70,30 +67,48 @@ export default function BooksPage() {
   }, [user, isAuthenticated, activeTab]);
 
   const handleRemoveItem = async (bookId: string) => {
-    let currentList = [];
-    let setterFunction;
+    if (!user) return;
+    
+    let currentList: Book[] = [];
+    let setterFunction: React.Dispatch<React.SetStateAction<Book[]>>;
+    let collectionType: 'favorites' | 'bookmarks' | 'savedForLater';
+    
     switch (activeTab) {
       case "favorites":
         currentList = favorites;
         setterFunction = setFavorites;
+        collectionType = 'favorites';
         break;
       case "bookmarks":
         currentList = bookmarks;
         setterFunction = setBookmarks;
+        collectionType = 'bookmarks';
         break;
       case "saved":
         currentList = savedForLater;
         setterFunction = setSavedForLater;
+        collectionType = 'savedForLater';
         break;
+      default:
+        return;
     }
-    setterFunction(currentList.filter((book) => book.id !== bookId));
+    
+    try {
+      await removeFromCollection(user.uid, bookId, collectionType);
+      setterFunction(currentList.filter((book) => book.id !== bookId));
+    } catch (err) {
+      console.error(`Error removing from ${collectionType}:`, err);
+      setError(`Failed to remove book from ${activeTab}. Please try again.`);
+    }
   };
 
   return (
     <Container className="py-8">
       <h1 className="text-3xl font-bold mb-6">My Books</h1>
       {!isAuthenticated ? (
-        <LoginPrompt message="Sign in to view your saved books" />
+        <div className="text-center py-8 text-default-500">
+          Please log in to view your book collection.
+        </div>
       ) : (
         <Card>
           <CardHeader>

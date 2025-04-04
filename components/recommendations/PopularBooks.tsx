@@ -3,7 +3,6 @@ import { Card, CardHeader, CardBody } from "@heroui/react";
 
 import BookList from "../book/BookList";
 import { getPopularBooks } from "../../services/bookService";
-import { addBookmark } from "../../services/userService";
 import { useAuth } from "../../hooks/useAuth";
 
 interface Book {

@@ -35,8 +35,8 @@ export const searchBooksWithKeyword = async (
     constraints.push(where("titleLowerCase", ">=", keywordLower));
     constraints.push(where("titleLowerCase", "<=", keywordLower + "\uf8ff"));
   }
-  if (options.genre) {
-    constraints.push(where("genres", "array-contains", options.genre));
+  if (options.genres) {
+    constraints.push(where("genres", "array-contains", options.genres));
   }
   if (options.length) {
     if (options.length === "short") {
