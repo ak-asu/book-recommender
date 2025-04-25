@@ -6,7 +6,7 @@ import { Card, CardHeader, CardBody, Tabs, Tab, Spinner } from "@heroui/react";
 import Container from "@/components/ui/Container";
 import BookList from "@/components/book/BookList";
 import { useAuth } from "@/hooks/useAuth";
-import { removeFromCollection } from "@/services/userService";
+import { bookmarkService } from "@/services/bookmarkService";
 
 interface Book {
   id: string;
@@ -92,10 +92,19 @@ export default function BooksPage() {
     }
 
     try {
-      await removeFromCollection(user.uid, bookId, collectionType);
+      switch (collectionType) {
+        case "favorites":
+          await bookmarkService.removeFavorite(bookId);
+          break;
+        case "bookmarks":
+          await bookmarkService.removeBookmark(bookId);
+          break;
+        case "savedForLater":
+          await bookmarkService.removeSavedForLater(bookId);
+          break;
+      }
       setterFunction(currentList.filter((book) => book.id !== bookId));
-    } catch (err) {
-      console.error(`Error removing from ${collectionType}:`, err);
+    } catch {
       setError(`Failed to remove book from ${activeTab}. Please try again.`);
     }
   };

@@ -1,21 +1,29 @@
-import { Link } from "react-router-dom";
-import { useDispatch, useSelector } from "react-redux";
-import { ArrowLeft, History, Trash2, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+"use client";
 
+import Link from "next/link";
+import { useSelector } from "react-redux";
+import {
+  ArrowLeft,
+  History as HistoryIcon,
+  Trash2,
+  RefreshCw,
+} from "lucide-react";
+import { Button } from "@heroui/react";
+
+import { useAppDispatch } from "@/hooks/useAppDispatch";
+import { useToast } from "@/hooks/useToast";
+import { useAuth } from "@/hooks/useAuth";
 import { RootState } from "@/store";
 import {
   removeFromHistory,
   setQuery,
   searchBooks,
 } from "@/store/slices/booksSlice";
-import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/ui/Navbar";
-import { Button } from "@/components/ui/button";
-import HistoryActions from "@/components/HistoryActions";
+import { Navbar } from "@/components/ui/Navbar";
 
 const HistoryPage = () => {
-  const dispatch = useDispatch();
+  const { toast } = useToast();
+  const dispatch = useAppDispatch();
   const { isAuthenticated } = useAuth();
   const { history } = useSelector((state: RootState) => state.books);
 
@@ -27,7 +35,7 @@ const HistoryPage = () => {
           <h2 className="text-2xl font-bold mb-4 text-white">
             Please login to view your search history
           </h2>
-          <Link to="/">
+          <Link href="/">
             <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
               Go to Home
             </Button>
@@ -39,13 +47,21 @@ const HistoryPage = () => {
 
   const handleRemoveHistoryItem = (id: string) => {
     dispatch(removeFromHistory(id));
-    toast.success("Search removed from history");
+    toast({
+      title: "Success",
+      description: "Search removed from history",
+      variant: "success",
+    });
   };
 
   const handleReloadSearch = (query: string) => {
     dispatch(setQuery(query));
     dispatch(searchBooks({ query }));
-    toast.success("Search reloaded");
+    toast({
+      title: "Success",
+      description: "Search reloaded",
+      variant: "success",
+    });
   };
 
   const formatDate = (timestamp: number) => {
@@ -65,7 +81,7 @@ const HistoryPage = () => {
       <div className="container mx-auto py-8 px-4">
         <Link
           className="flex items-center text-booktrack-gold mb-6 hover:underline"
-          to="/"
+          href="/"
         >
           <ArrowLeft className="h-4 w-4 mr-1" />
           Back to Home
@@ -73,19 +89,19 @@ const HistoryPage = () => {
 
         <div className="flex items-center justify-between mb-6">
           <h1 className="text-3xl font-bold text-white">Search History</h1>
-          {history.length > 0 && <HistoryActions />}
+          {/* history actions removed */}
         </div>
 
         {history.length === 0 ? (
           <div className="bg-booktrack-darkgray rounded-lg p-8 text-center">
-            <History className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+            <HistoryIcon className="h-12 w-12 mx-auto mb-4 text-gray-500" />
             <h3 className="text-xl font-medium text-white mb-2">
               No search history
             </h3>
             <p className="text-gray-400 mb-4">
               Your search history will appear here
             </p>
-            <Link to="/">
+            <Link href="/">
               <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
                 Start Searching
               </Button>
@@ -115,7 +131,10 @@ const HistoryPage = () => {
                     {formatDate(item.timestamp)}
                   </div>
                   <div className="col-span-8">
-                    <Link to="/" onClick={() => handleReloadSearch(item.query)}>
+                    <Link
+                      href="/"
+                      onClick={() => handleReloadSearch(item.query)}
+                    >
                       <p className="text-white hover:text-booktrack-gold">
                         {item.query}
                       </p>
@@ -124,17 +143,17 @@ const HistoryPage = () => {
                   <div className="col-span-2 flex space-x-2">
                     <Button
                       className="text-booktrack-gold hover:bg-booktrack-gold/10"
-                      size="icon"
+                      size="lg"
                       variant="ghost"
-                      onClick={() => handleReloadSearch(item.query)}
+                      onPress={() => handleReloadSearch(item.query)}
                     >
                       <RefreshCw className="h-4 w-4" />
                     </Button>
                     <Button
                       className="text-red-400 hover:bg-red-400/10"
-                      size="icon"
+                      size="lg"
                       variant="ghost"
-                      onClick={() => handleRemoveHistoryItem(item.id)}
+                      onPress={() => handleRemoveHistoryItem(item.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>

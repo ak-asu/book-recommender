@@ -11,6 +11,8 @@ import { useAuth } from "@/hooks/useAuth";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import Container from "@/components/ui/Container";
 import { useAppDispatch } from "@/hooks/useAppDispatch";
+import { SearchHistoryItem, SearchOptions } from "@/types";
+import { searchBooks } from "@/store/slices/booksSlice";
 
 const HomePage = () => {
   const dispatch = useAppDispatch();
@@ -51,9 +53,7 @@ const HomePage = () => {
       setIsSearching(true);
       setError(null);
       setHasSearched(true);
-      const data = await dispatch(
-        sendMessage({ content: query, options }),
-      ).unwrap();
+      const data = await dispatch(searchBooks({ query: query })).unwrap();
       if (!data.sessionId) {
         throw new Error("Failed to create chat");
       }
@@ -64,8 +64,8 @@ const HomePage = () => {
         options,
         results:
           data.messages
-            .map((msg) => msg.metadata?.books?.[0])
-            .filter((e) => e !== undefined) || [],
+            .map((msg: any) => msg.metadata?.books?.[0])
+            .filter((e: any) => e !== undefined) || [],
         timestamp: new Date().getTime(),
       };
       if (currentHistoryIndex < history.length - 1) {

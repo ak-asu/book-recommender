@@ -77,3 +77,17 @@ export interface BookmarkState {
   bookmarked: Book[];
   savedForLater: Book[];
 }
+
+export interface SearchOptions {
+  genres?: string[];
+  mood?: string;
+  length?: "short" | "medium" | "long";
+}
+
+export interface SearchHistoryItem {
+  id: string;
+  query: string;
+  options: SearchOptions;
+  results: any[];
+  timestamp: number;
+}
