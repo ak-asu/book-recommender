@@ -6,9 +6,7 @@ import { Card, CardHeader, CardBody, Tabs, Tab, Spinner } from "@heroui/react";
 import Container from "@/components/ui/Container";
 import BookList from "@/components/book/BookList";
 import { useAuth } from "@/hooks/useAuth";
-import {
-  removeFromCollection,
-} from "@/services/userService";
+import { removeFromCollection } from "@/services/userService";
 
 interface Book {
   id: string;
@@ -68,31 +66,31 @@ export default function BooksPage() {
 
   const handleRemoveItem = async (bookId: string) => {
     if (!user) return;
-    
+
     let currentList: Book[] = [];
     let setterFunction: React.Dispatch<React.SetStateAction<Book[]>>;
-    let collectionType: 'favorites' | 'bookmarks' | 'savedForLater';
-    
+    let collectionType: "favorites" | "bookmarks" | "savedForLater";
+
     switch (activeTab) {
       case "favorites":
         currentList = favorites;
         setterFunction = setFavorites;
-        collectionType = 'favorites';
+        collectionType = "favorites";
         break;
       case "bookmarks":
         currentList = bookmarks;
         setterFunction = setBookmarks;
-        collectionType = 'bookmarks';
+        collectionType = "bookmarks";
         break;
       case "saved":
         currentList = savedForLater;
         setterFunction = setSavedForLater;
-        collectionType = 'savedForLater';
+        collectionType = "savedForLater";
         break;
       default:
         return;
     }
-    
+
     try {
       await removeFromCollection(user.uid, bookId, collectionType);
       setterFunction(currentList.filter((book) => book.id !== bookId));

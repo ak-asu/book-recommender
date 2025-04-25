@@ -1,9 +1,13 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardBody } from "@heroui/react";
+import { useRouter } from "next/navigation";
 
 import BookList from "../book/BookList";
-import { getPopularBooks } from "../../services/bookService";
 import { useAuth } from "../../hooks/useAuth";
+
+import { useToast } from "@/hooks/useToast";
+import { bookService } from "@/services/booksService";
+import { bookmarkService } from "@/services/bookmarkService";
 
 interface Book {
   id: string;
@@ -22,16 +26,22 @@ const PopularBooks = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadPopularBooks = async () => {
       try {
         setLoading(true);
-        const popularBooks = await getPopularBooks(12);
+        const popularBooks = await bookService.getPopularBooks();
 
         setBooks(popularBooks);
-      } catch (err) {
-        console.error("Error loading popular books:", err);
+      } catch (err: any) {
+        toast({
+          title: "Load Popular Books Error",
+          description: err.message || "Failed to load popular books.",
+          variant: "destructive",
+        });
         setError("Failed to load popular books. Please try again later.");
       } finally {
         setLoading(false);
@@ -42,12 +52,27 @@ const PopularBooks = () => {
   }, []);
 
   const handleBookmark = async (bookId: string) => {
-    if (!isAuthenticated || !user) return;
+    if (!isAuthenticated) {
+      router.push(
+        "/login?redirect=" + encodeURIComponent(window.location.pathname),
+      );
+      return;
+    }
 
     try {
-      await addBookmark(user.uid, bookId);
-    } catch (err) {
-      console.error("Error bookmarking book:", err);
+      await bookmarkService.addBookmark(bookId);
+      toast({
+        title: "Bookmarked",
+        description: "Book added to bookmarks.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Bookmark Error",
+        description: err.message || "Failed to bookmark book.",
+        variant: "destructive",
+      });
+      setError("Failed to bookmark book. Please try again later.");
     }
   };
 

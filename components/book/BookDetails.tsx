@@ -13,8 +13,6 @@ import {
 } from "@heroui/react";
 
 import { BookmarkIcon, HeartIcon, ShareIcon } from "../icons";
-import { getBookById } from "../../services/bookService";
-import { addBookmark, addToFavorites } from "../../services/userService";
 import { useAuth } from "../../hooks/useAuth";
 import SimilarBooks from "../recommendations/SimilarBooks";
 import Rating from "../ui/Rating";
@@ -22,6 +20,10 @@ import ErrorMessage from "../ui/ErrorMessage";
 
 import BookExternalLinks from "./BookExternalLinks";
 import ReviewSection from "./ReviewSection";
+
+import { useToast } from "@/hooks/useToast";
+import { bookmarkService } from "@/services/bookmarkService";
+import { bookService } from "@/services/booksService";
 
 interface BookData {
   id: string;
@@ -48,6 +50,7 @@ interface BookDetailsProps {
 
 const BookDetails = ({ bookId }: BookDetailsProps) => {
   const router = useRouter();
+  const { toast } = useToast();
   const [book, setBook] = useState<BookData | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -62,7 +65,7 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
     const fetchBookDetails = async () => {
       try {
         setLoading(true);
-        const bookData = await getBookById(bookId);
+        const bookData = await bookService.getBookById(bookId);
 
         setBook(bookData);
 
@@ -72,16 +75,20 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
           // setBookmarked(await isBookmarked(user.uid, bookId));
           // setFavorited(await isFavorited(user.uid, bookId));
         }
-      } catch (err) {
-        console.error("Error fetching book details:", err);
+      } catch (err: any) {
         setError("Failed to load book details. Please try again later.");
+        toast({
+          title: "Load Error",
+          description: err.message || "Error loading book details.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     fetchBookDetails();
-  }, [bookId, isAuthenticated, user]);
+  }, [bookId, isAuthenticated, user, toast]);
 
   const handleBookmark = async () => {
     if (!isAuthenticated) {
@@ -93,11 +100,15 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
     }
 
     try {
-      await addBookmark(user?.uid as string, bookId);
+      await bookmarkService.addBookmark(bookId);
       setBookmarked(!bookmarked);
     } catch (err) {
-      console.error("Error bookmarking book:", err);
       setError("Failed to bookmark book. Please try again.");
+      toast({
+        title: "Bookmark Error",
+        description: (err as Error).message || "Error during bookmarking.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -111,11 +122,15 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
     }
 
     try {
-      await addToFavorites(user?.uid as string, bookId);
+      await bookmarkService.addFavorite(bookId);
       setFavorited(!favorited);
     } catch (err) {
-      console.error("Error adding to favorites:", err);
       setError("Failed to add book to favorites. Please try again.");
+      toast({
+        title: "Favorites Error",
+        description: (err as Error).message || "Error adding to favorites.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -127,12 +142,21 @@ const BookDetails = ({ bookId }: BookDetailsProps) => {
           text: `Check out ${book?.title} by ${book?.author}`,
           url: window.location.href,
         })
-        .catch((err) => console.error("Error sharing:", err));
+        .catch((err: any) =>
+          toast({
+            title: "Share Error",
+            description: err.message || "Error sharing link.",
+            variant: "destructive",
+          }),
+        );
     } else {
       // Fallback for browsers that don't support the Web Share API
       navigator.clipboard.writeText(window.location.href);
-      // Show a toast notification (you'd need to implement this)
-      // showToast("Link copied to clipboard!");
+      toast({
+        title: "Link Copied",
+        description: "Book link copied to clipboard.",
+        variant: "success",
+      });
     }
   };
 

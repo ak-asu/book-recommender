@@ -1,16 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Card, CardBody, Button, Input, Spinner, Chip } from "@heroui/react";
 
-import {
-  getUserPreferences,
-  updateUserPreferences,
-} from "../../services/userService";
+import { feedbackService } from "@/services/feedbackService";
+import { useToast } from "@/hooks/useToast";
 
 interface PreferencesTabProps {
   userId: string;
 }
 
 const PreferencesTab: React.FC<PreferencesTabProps> = ({ userId }) => {
+  const { toast } = useToast();
   const [preferences, setPreferences] = useState<any>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -21,7 +20,7 @@ const PreferencesTab: React.FC<PreferencesTabProps> = ({ userId }) => {
     const loadUserPreferences = async () => {
       try {
         setIsLoading(true);
-        const prefs = await getUserPreferences(userId);
+        const prefs = await feedbackService.getUserPreferences(userId);
 
         setPreferences(
           prefs || {
@@ -37,8 +36,12 @@ const PreferencesTab: React.FC<PreferencesTabProps> = ({ userId }) => {
             },
           },
         );
-      } catch (err) {
-        console.error("Error loading preferences:", err);
+      } catch (err: any) {
+        toast({
+          title: "Load Preferences Error",
+          description: err.message || "Failed to load preferences.",
+          variant: "destructive",
+        });
         setError("Failed to load your preferences. Please try again.");
       } finally {
         setIsLoading(false);
@@ -54,10 +57,19 @@ const PreferencesTab: React.FC<PreferencesTabProps> = ({ userId }) => {
       setError(null);
       setSuccessMessage(null);
 
-      await updateUserPreferences(userId, preferences);
+      await feedbackService.updateUserPreferences(userId, preferences);
+      toast({
+        title: "Preferences Updated",
+        description: "Your preferences have been updated.",
+        variant: "success",
+      });
       setSuccessMessage("Preferences updated successfully");
-    } catch (err) {
-      console.error("Error updating preferences:", err);
+    } catch (err: any) {
+      toast({
+        title: "Update Preferences Error",
+        description: err.message || "Failed to update preferences.",
+        variant: "destructive",
+      });
       setError("Failed to update preferences. Please try again.");
     } finally {
       setIsUpdating(false);

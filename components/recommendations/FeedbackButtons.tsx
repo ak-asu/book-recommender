@@ -2,7 +2,9 @@ import { Button, Tooltip } from "@heroui/react";
 import { useState } from "react";
 
 import { useAuth } from "../../hooks/useAuth";
-import { recordUserFeedback } from "../../services/userService";
+
+import { feedbackService, FeedbackType } from "@/services/feedbackService";
+import { useToast } from "@/hooks/useToast";
 
 interface FeedbackButtonsProps {
   bookId: string;
@@ -21,6 +23,7 @@ const FeedbackButtons: React.FC<FeedbackButtonsProps> = ({
   const [disliked, setDisliked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { isAuthenticated, user } = useAuth();
+  const { toast } = useToast();
 
   const handleLike = async () => {
     // Toggle like state
@@ -35,9 +38,22 @@ const FeedbackButtons: React.FC<FeedbackButtonsProps> = ({
     if (isAuthenticated && user) {
       try {
         setIsSubmitting(true);
-        await recordUserFeedback(user.uid, bookId, "like");
-      } catch (err) {
-        console.error("Error recording feedback:", err);
+        await feedbackService.submitFeedback(
+          bookId,
+          FeedbackType.LIKE,
+          user.uid,
+        );
+        toast({
+          title: "Feedback Recorded",
+          description: "Your like has been recorded.",
+          variant: "success",
+        });
+      } catch (err: any) {
+        toast({
+          title: "Feedback Error",
+          description: err.message || "Failed to record feedback.",
+          variant: "destructive",
+        });
       } finally {
         setIsSubmitting(false);
       }
@@ -57,9 +73,22 @@ const FeedbackButtons: React.FC<FeedbackButtonsProps> = ({
     if (isAuthenticated && user) {
       try {
         setIsSubmitting(true);
-        await recordUserFeedback(user.uid, bookId, "dislike");
-      } catch (err) {
-        console.error("Error recording feedback:", err);
+        await feedbackService.submitFeedback(
+          bookId,
+          FeedbackType.DISLIKE,
+          user.uid,
+        );
+        toast({
+          title: "Feedback Recorded",
+          description: "Your dislike has been recorded.",
+          variant: "success",
+        });
+      } catch (err: any) {
+        toast({
+          title: "Feedback Error",
+          description: err.message || "Failed to record feedback.",
+          variant: "destructive",
+        });
       } finally {
         setIsSubmitting(false);
       }

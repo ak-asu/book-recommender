@@ -2,7 +2,9 @@ import { useState, useEffect } from "react";
 import { Spinner, Button } from "@heroui/react";
 
 import BookList from "../book/BookList";
-import { getSimilarBooks } from "../../services/bookService";
+
+import { bookService } from "@/services/booksService";
+import { useToast } from "@/hooks/useToast";
 
 interface SimilarBooksProps {
   bookId: string;
@@ -10,19 +12,24 @@ interface SimilarBooksProps {
 }
 
 const SimilarBooks: React.FC<SimilarBooksProps> = ({ bookId, genres }) => {
-  const [books, setBooks] = useState([]);
+  const [books, setBooks] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { toast } = useToast();
 
   useEffect(() => {
     const loadSimilarBooks = async () => {
       try {
         setLoading(true);
-        const similarBooks = await getSimilarBooks(bookId, genres);
+        const similarBooks = await bookService.getSimilarBooks(bookId);
 
         setBooks(similarBooks);
-      } catch (err) {
-        console.error("Error loading similar books:", err);
+      } catch (err: any) {
+        toast({
+          title: "Load Similar Books Error",
+          description: err.message || "Failed to load similar books.",
+          variant: "destructive",
+        });
         setError("Failed to load similar books. Please try again later.");
       } finally {
         setLoading(false);
@@ -30,16 +37,20 @@ const SimilarBooks: React.FC<SimilarBooksProps> = ({ bookId, genres }) => {
     };
 
     loadSimilarBooks();
-  }, [bookId, genres]);
+  }, [bookId, genres, toast]);
 
   const handleRefreshRecommendations = async () => {
     try {
       setLoading(true);
-      const newRecommendations = await getSimilarBooks(bookId, genres, true);
+      const newRecommendations = await bookService.getSimilarBooks(bookId);
 
       setBooks(newRecommendations);
-    } catch (err) {
-      console.error("Error refreshing recommendations:", err);
+    } catch (err: any) {
+      toast({
+        title: "Refresh Similar Books Error",
+        description: err.message || "Failed to refresh recommendations.",
+        variant: "destructive",
+      });
       setError("Failed to refresh recommendations. Please try again.");
     } finally {
       setLoading(false);

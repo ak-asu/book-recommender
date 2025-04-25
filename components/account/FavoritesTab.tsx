@@ -2,10 +2,9 @@ import { useState, useEffect } from "react";
 import { Card, CardBody, Spinner } from "@heroui/react";
 
 import BookList from "../book/BookList";
-import {
-  getUserFavorites,
-  removeFromFavorites,
-} from "../../services/userService";
+
+import { bookmarkService } from "@/services/bookmarkService";
+import { useToast } from "@/hooks/useToast";
 
 interface FavoritesTabProps {
   userId: string;
@@ -24,6 +23,7 @@ interface Book {
 }
 
 const FavoritesTab: React.FC<FavoritesTabProps> = ({ userId }) => {
+  const { toast } = useToast();
   const [favorites, setFavorites] = useState<Book[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,11 +32,15 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ userId }) => {
     const loadFavorites = async () => {
       try {
         setLoading(true);
-        const data = await getUserFavorites(userId);
+        const data = await bookmarkService.getFavorites();
 
         setFavorites(data);
-      } catch (err) {
-        console.error("Error loading favorites:", err);
+      } catch (err: any) {
+        toast({
+          title: "Load Favorites Error",
+          description: err.message || "Failed to load your favorites.",
+          variant: "destructive",
+        });
         setError("Failed to load your favorites. Please try again.");
       } finally {
         setLoading(false);
@@ -44,17 +48,26 @@ const FavoritesTab: React.FC<FavoritesTabProps> = ({ userId }) => {
     };
 
     loadFavorites();
-  }, [userId]);
+  }, []);
 
   const handleRemoveFavorite = async (bookId: string) => {
     try {
-      await removeFromFavorites(userId, bookId);
+      await bookmarkService.removeFavorite(bookId);
       // Update the local state to remove the book
       setFavorites((prevFavorites) =>
         prevFavorites.filter((book: any) => book.id !== bookId),
       );
-    } catch (err) {
-      console.error("Error removing favorite:", err);
+      toast({
+        title: "Favorite Removed",
+        description: "Book removed from favorites.",
+        variant: "success",
+      });
+    } catch (err: any) {
+      toast({
+        title: "Remove Favorite Error",
+        description: err.message || "Failed to remove from favorites.",
+        variant: "destructive",
+      });
       setError("Failed to remove from favorites. Please try again.");
     }
   };

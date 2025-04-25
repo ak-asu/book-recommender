@@ -144,7 +144,7 @@ const HistoryList = ({
           <Button
             className="mt-4"
             color="primary"
-            onClick={() => router.push('/')}
+            onClick={() => router.push("/")}
           >
             Get Recommendations
           </Button>
