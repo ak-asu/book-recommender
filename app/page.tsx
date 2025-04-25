@@ -10,7 +10,6 @@ import PopularBooks from "@/components/recommendations/PopularBooks";
 import { useAuth } from "@/hooks/useAuth";
 import ErrorMessage from "@/components/ui/ErrorMessage";
 import Container from "@/components/ui/Container";
-import { SearchOptions, SearchHistoryItem } from "@/types";
 import { useAppDispatch } from "@/hooks/useAppDispatch";
 
 const HomePage = () => {
