@@ -1,107 +1,96 @@
-import { useState } from "react";
-import {
-  Pagination,
-  Dropdown,
-  DropdownTrigger,
-  DropdownMenu,
-  DropdownItem,
-  Button,
-  Spinner,
-} from "@heroui/react";
-
-import { ChevronDownIcon } from "../icons";
+import { useEffect } from "react";
+import { useDispatch, useSelector } from "react-redux";
 
 import BookCard from "./BookCard";
 
-interface Book {
-  id: string;
-  image: string;
-  title: string;
-  author: string;
-  publicationDate?: string;
-  rating: number;
-  reviewCount?: number;
-  description: string;
-  genres?: string[];
-}
+import { RootState } from "@/store";
+import { searchBooks } from "@/store/slices/booksSlice";
+import { mockBooks } from "@/constants/mockData";
+import { useRecommendations } from "@/hooks/useRecommendations";
+import { FeedbackType } from "@/services/feedbackService";
 
-interface BookListProps {
-  books: Book[];
-  isLoading?: boolean;
-  onBookmark?: (bookId: string) => void;
-  totalPages?: number;
-  currentPage?: number;
-  onPageChange?: (page: number) => void;
-}
+const BookList = () => {
+  const dispatch = useDispatch();
+  const { results, loading, error, query } = useSelector(
+    (state: RootState) => state.books,
+  );
+  const { submitFeedback, regenerateRecommendations } = useRecommendations();
 
-const BookList: React.FC<BookListProps> = ({
-  books,
-  isLoading = false,
-  onBookmark,
-  totalPages = 1,
-  currentPage = 1,
-  onPageChange,
-}) => {
-  const [sortBy, setSortBy] = useState<string>("relevance");
+  useEffect(() => {
+    if (!results.length && !query) {
+      // Load popular books on initial load
+      dispatch(searchBooks({ query: "" }));
+    }
+  }, [dispatch, results.length, query]);
 
-  if (isLoading) {
+  const handleBookFeedback = async (bookId: string, type: FeedbackType) => {
+    await submitFeedback(bookId, type);
+
+    // If user requests regeneration, get new recommendations
+    if (type === FeedbackType.REGENERATE) {
+      await regenerateRecommendations(query || "");
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Spinner label="Loading books..." size="lg" />
-      </div>
-    );
-  }
-
-  if (books.length === 0) {
-    return (
-      <div className="flex justify-center items-center h-64 border rounded-lg">
-        <div className="text-center">
-          <h3 className="text-xl font-semibold mb-2">No books found</h3>
-          <p className="text-default-500">
-            Try adjusting your search or filters
-          </p>
+      <div className="container mx-auto py-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {[1, 2, 3, 4, 5, 6].map((item) => (
+            <div key={item} className="book-card animate-pulse">
+              <div className="bg-booktrack-lightgray aspect-[2/3] rounded-lg" />
+              <div className="p-4">
+                <div className="h-6 bg-booktrack-lightgray rounded w-3/4 mb-2" />
+                <div className="h-4 bg-booktrack-lightgray rounded w-1/2 mb-4" />
+                <div className="h-4 bg-booktrack-lightgray rounded w-1/4 mb-2" />
+                <div className="h-20 bg-booktrack-lightgray rounded w-full mt-2" />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     );
   }
 
+  if (error) {
+    return (
+      <div className="container mx-auto py-10 text-center">
+        <p className="text-red-500">Error: {error}</p>
+      </div>
+    );
+  }
+
+  const booksToDisplay = results.length ? results : mockBooks;
+
   return (
-    <div className="space-y-6">
-      <div className="flex justify-end">
-        <Dropdown>
-          <DropdownTrigger>
-            <Button endContent={<ChevronDownIcon />} size="sm" variant="flat">
-              Sort by: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}
-            </Button>
-          </DropdownTrigger>
-          <DropdownMenu
-            aria-label="Sort options"
-            selectedKeys={[sortBy]}
-            selectionMode="single"
-            onAction={(key) => setSortBy(key as string)}
-          >
-            <DropdownItem key="relevance">Relevance</DropdownItem>
-            <DropdownItem key="rating">Rating</DropdownItem>
-            <DropdownItem key="newest">Newest</DropdownItem>
-            <DropdownItem key="title">Title</DropdownItem>
-          </DropdownMenu>
-        </Dropdown>
-      </div>
+    <div className="container mx-auto py-6">
+      {query && (
+        <h2 className="text-2xl mb-6 text-white">
+          Search results for:{" "}
+          <span className="text-booktrack-gold">{query}</span>
+        </h2>
+      )}
+      {!query && (
+        <h2 className="text-2xl mb-6 text-white">
+          What fellow readers are{" "}
+          <span className="text-booktrack-gold">enjoying</span>
+        </h2>
+      )}
 
-      <div className="grid gap-4 md:grid-cols-1 lg:grid-cols-2 xl:grid-cols-2">
-        {books.map((book) => (
-          <BookCard key={book.id} book={book} onBookmark={onBookmark} />
-        ))}
-      </div>
-
-      {totalPages > 1 && (
-        <div className="flex justify-center mt-8">
-          <Pagination
-            showControls
-            initialPage={currentPage}
-            total={totalPages}
-            onChange={onPageChange}
-          />
+      {booksToDisplay.length === 0 ? (
+        <p className="text-center text-gray-400 py-10">
+          No books found matching your criteria.
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {booksToDisplay.map((book) => (
+            <BookCard
+              key={book.id}
+              book={book}
+              showFeedback={true}
+              onFeedback={handleBookFeedback}
+            />
+          ))}
         </div>
       )}
     </div>

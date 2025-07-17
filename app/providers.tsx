@@ -10,7 +10,7 @@ import { Provider as ReduxProvider } from "react-redux";
 
 import { AuthProvider } from "@/context/AuthContext";
 import { ToastProvider } from "@/context/ToastContext";
-import { store } from "@/store/store";
+import { store } from "@/store";
 
 export interface ProvidersProps {
   children: React.ReactNode;
@@ -31,11 +31,11 @@ export function Providers({ children, themeProps }: ProvidersProps) {
   return (
     <ReduxProvider store={store}>
       <ToastProvider>
-      <HeroUIProvider navigate={router.push}>
-        <NextThemesProvider {...themeProps}>
-          <AuthProvider>{children}</AuthProvider>
-        </NextThemesProvider>
-      </HeroUIProvider>
+        <HeroUIProvider navigate={router.push}>
+          <NextThemesProvider {...themeProps}>
+            <AuthProvider>{children}</AuthProvider>
+          </NextThemesProvider>
+        </HeroUIProvider>
       </ToastProvider>
     </ReduxProvider>
   );

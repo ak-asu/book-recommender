@@ -10,8 +10,10 @@ import {
 } from "@heroui/react";
 
 import { useAuth } from "../../hooks/useAuth";
-import { getBookReviews, addBookReview } from "../../services/bookService";
 import Rating from "../ui/Rating";
+
+import { api } from "@/services/api";
+import { useToast } from "@/hooks/useToast";
 
 interface Review {
   id: string;
@@ -30,26 +32,30 @@ interface ReviewSectionProps {
 const ReviewSection: React.FC<ReviewSectionProps> = ({ bookId }) => {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
   const [showForm, setShowForm] = useState(false);
   const [newReview, setNewReview] = useState({ rating: 0, text: "" });
   const { user, isAuthenticated } = useAuth();
 
   useEffect(() => {
     const loadReviews = async () => {
+      setLoading(true);
       try {
-        setLoading(true);
-        const data = await getBookReviews(bookId);
-
+        const data = (await api.get(`/reviews?bookId=${bookId}`)) as Review[];
         setReviews(data);
-      } catch (err) {
-        console.error("Error loading reviews:", err);
+      } catch (err: any) {
+        toast({
+          title: "Load Reviews Error",
+          description: err.message || "Failed to load reviews.",
+          variant: "destructive",
+        });
       } finally {
         setLoading(false);
       }
     };
 
     loadReviews();
-  }, [bookId]);
+  }, [bookId, toast]);
 
   const handleAddReview = async () => {
     if (!isAuthenticated || newReview.rating === 0) return;
@@ -60,9 +66,10 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ bookId }) => {
         userId: user?.uid as string,
         rating: newReview.rating,
         text: newReview.text,
+        createdAt: new Date().toISOString(),
       };
 
-      await addBookReview(reviewData);
+      await api.post("/reviews", reviewData);
 
       // Add the new review to the list
       const addedReview = {
@@ -78,8 +85,12 @@ const ReviewSection: React.FC<ReviewSectionProps> = ({ bookId }) => {
       setReviews([addedReview, ...reviews]);
       setNewReview({ rating: 0, text: "" });
       setShowForm(false);
-    } catch (err) {
-      console.error("Error adding review:", err);
+    } catch (err: any) {
+      toast({
+        title: "Submit Review Error",
+        description: err.message || "Failed to submit review.",
+        variant: "destructive",
+      });
     }
   };
 
