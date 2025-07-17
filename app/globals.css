@@ -33,7 +33,7 @@
     --ring: 42 100% 50%;
 
     --radius: 0.5rem;
-    
+
     --sidebar-background: 0 0% 7%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 42 100% 50%;
@@ -46,10 +46,6 @@
 }
 
 @layer base {
-  * {
-    @apply border-border;
-  }
-
   body {
     @apply bg-booktrack-dark text-foreground;
   }

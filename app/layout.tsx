@@ -5,7 +5,7 @@ import { Providers } from "./providers";
 
 import { siteConfig } from "@/lib/site";
 import { fontSans } from "@/lib/fonts";
-import { Navbar } from "@/components/ui/Navbar";
+import Navbar from "@/components/ui/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {

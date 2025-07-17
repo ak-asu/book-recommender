@@ -1,348 +1,295 @@
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
+import { useEffect } from "react";
+import { useParams, Link } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { BookMarked, Share, Star, Clock, ArrowLeft } from "lucide-react";
+import { toast } from "sonner";
+
+import { RootState } from "@/store";
+import { fetchBookById } from "@/store/slices/booksSlice";
 import {
-  Card,
-  CardBody,
-  Spinner,
-  Divider,
-  Button,
-  Chip,
-  Tooltip,
-  Badge,
-} from "@heroui/react";
+  toggleBookmark,
+  toggleFavorite,
+  toggleSaveForLater,
+} from "@/store/slices/bookmarkSlice";
+import { Button } from "@/components/ui/button";
+import { useAuth } from "@/hooks/useAuth";
+import { mockBooks } from "@/constants/mockData";
+import { Book } from "@/types";
 
-import { BookmarkIcon, HeartIcon, ShareIcon } from "../icons";
-import { useAuth } from "../../hooks/useAuth";
-import SimilarBooks from "../recommendations/SimilarBooks";
-import Rating from "../ui/Rating";
-import ErrorMessage from "../ui/ErrorMessage";
+const BookDetails = () => {
+  const { id } = useParams<{ id: string }>();
+  const dispatch = useDispatch();
+  const { isAuthenticated } = useAuth();
+  const bookmarks = useSelector(
+    (state: RootState) => state.bookmark.bookmarked,
+  );
+  const favorites = useSelector((state: RootState) => state.bookmark.favorites);
+  const savedForLater = useSelector(
+    (state: RootState) => state.bookmark.savedForLater,
+  );
 
-import BookExternalLinks from "./BookExternalLinks";
-import ReviewSection from "./ReviewSection";
+  // Since we're using mock data, we'll just find the book directly from our mock data
+  const book = mockBooks.find((book) => book.id === id);
 
-import { useToast } from "@/hooks/useToast";
-import { bookmarkService } from "@/services/bookmarkService";
-import { bookService } from "@/services/booksService";
+  const isBookmarked = bookmarks.some((b) => b.id === id);
+  const isFavorite = favorites.some((b) => b.id === id);
+  const isSavedForLater = savedForLater.some((b) => b.id === id);
 
-interface BookData {
-  id: string;
-  title: string;
-  author: string;
-  coverImage: string;
-  synopsis: string;
-  genres: string[];
-  rating: number;
-  reviewCount: number;
-  ranking?: number;
-  pageCount: number;
-  publicationDate: string;
-  publisher: string;
-  series?: {
-    name: string;
-    volume: number;
-  };
-}
+  // Get similar books based on genre
+  const similarBooks = book
+    ? mockBooks
+        .filter(
+          (b) =>
+            b.id !== book.id && b.genre.some((g) => book.genre.includes(g)),
+        )
+        .slice(0, 3)
+    : [];
 
-interface BookDetailsProps {
-  bookId: string;
-}
-
-const BookDetails = ({ bookId }: BookDetailsProps) => {
-  const router = useRouter();
-  const { toast } = useToast();
-  const [book, setBook] = useState<BookData | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
-  const [bookmarked, setBookmarked] = useState<boolean>(false);
-  const [favorited, setFavorited] = useState<boolean>(false);
-  const { user, isAuthenticated } = useAuth();
-
-  // Fetch book details
   useEffect(() => {
-    if (!bookId) return;
-
-    const fetchBookDetails = async () => {
-      try {
-        setLoading(true);
-        const bookData = await bookService.getBookById(bookId);
-
-        setBook(bookData);
-
-        // Check if user has bookmarked/favorited this book
-        if (isAuthenticated && user) {
-          // These would be functions that check user data in Firebase
-          // setBookmarked(await isBookmarked(user.uid, bookId));
-          // setFavorited(await isFavorited(user.uid, bookId));
-        }
-      } catch (err: any) {
-        setError("Failed to load book details. Please try again later.");
-        toast({
-          title: "Load Error",
-          description: err.message || "Error loading book details.",
-          variant: "destructive",
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchBookDetails();
-  }, [bookId, isAuthenticated, user, toast]);
-
-  const handleBookmark = async () => {
-    if (!isAuthenticated) {
-      router.push(
-        "/login?redirect=" + encodeURIComponent(window.location.pathname),
-      );
-
-      return;
+    if (id) {
+      dispatch(fetchBookById(id));
     }
+  }, [dispatch, id]);
 
-    try {
-      await bookmarkService.addBookmark(bookId);
-      setBookmarked(!bookmarked);
-    } catch (err) {
-      setError("Failed to bookmark book. Please try again.");
-      toast({
-        title: "Bookmark Error",
-        description: (err as Error).message || "Error during bookmarking.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleAddToFavorites = async () => {
-    if (!isAuthenticated) {
-      router.push(
-        "/login?redirect=" + encodeURIComponent(window.location.pathname),
-      );
-
-      return;
-    }
-
-    try {
-      await bookmarkService.addFavorite(bookId);
-      setFavorited(!favorited);
-    } catch (err) {
-      setError("Failed to add book to favorites. Please try again.");
-      toast({
-        title: "Favorites Error",
-        description: (err as Error).message || "Error adding to favorites.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  const handleShare = () => {
-    if (navigator.share) {
-      navigator
-        .share({
-          title: book?.title || "Book recommendation",
-          text: `Check out ${book?.title} by ${book?.author}`,
-          url: window.location.href,
-        })
-        .catch((err: any) =>
-          toast({
-            title: "Share Error",
-            description: err.message || "Error sharing link.",
-            variant: "destructive",
-          }),
-        );
-    } else {
-      // Fallback for browsers that don't support the Web Share API
-      navigator.clipboard.writeText(window.location.href);
-      toast({
-        title: "Link Copied",
-        description: "Book link copied to clipboard.",
-        variant: "success",
-      });
-    }
-  };
-
-  if (loading) {
+  if (!book) {
     return (
-      <div className="flex justify-center items-center h-96">
-        <Spinner label="Loading book details..." size="lg" />
+      <div className="container mx-auto py-10 text-center">
+        <p className="text-red-500">Book not found</p>
+        <Link
+          className="text-booktrack-gold hover:underline mt-4 inline-block"
+          to="/"
+        >
+          Back to Home
+        </Link>
       </div>
     );
   }
 
-  if (error) {
-    return <ErrorMessage message={error} />;
-  }
+  const handleBookmark = () => {
+    if (!isAuthenticated) {
+      toast.error("Please login to bookmark books");
+      return;
+    }
 
-  if (!book) {
-    return <ErrorMessage message="Book not found" />;
-  }
+    dispatch(toggleBookmark(book));
+    toast.success(
+      isBookmarked ? "Removed from bookmarks" : "Added to bookmarks",
+    );
+  };
+
+  const handleFavorite = () => {
+    if (!isAuthenticated) {
+      toast.error("Please login to favorite books");
+      return;
+    }
+
+    dispatch(toggleFavorite(book));
+    toast.success(isFavorite ? "Removed from favorites" : "Added to favorites");
+  };
+
+  const handleSaveForLater = () => {
+    if (!isAuthenticated) {
+      toast.error("Please login to save books");
+      return;
+    }
+
+    dispatch(toggleSaveForLater(book));
+    toast.success(isSavedForLater ? "Removed from saved" : "Saved for later");
+  };
+
+  const handleShare = () => {
+    navigator.clipboard.writeText(window.location.href);
+    toast.success("Link copied to clipboard");
+  };
+
+  const renderBookCard = (book: Book) => (
+    <Link key={book.id} className="book-card" to={`/book/${book.id}`}>
+      <div className="relative aspect-[2/3] overflow-hidden">
+        <img
+          alt={`${book.title} cover`}
+          className="w-full h-full object-cover"
+          src={book.coverImage}
+        />
+      </div>
+      <div className="p-2">
+        <h4 className="text-sm font-semibold text-white truncate">
+          {book.title}
+        </h4>
+        <p className="text-xs text-gray-400">{book.author}</p>
+      </div>
+    </Link>
+  );
 
   return (
-    <div className="max-w-7xl mx-auto p-4 md:p-6">
-      <Card className="mb-8">
-        <CardBody>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* Left column - Book cover */}
-            <div className="flex flex-col items-center space-y-4">
-              <div className="relative w-full max-w-xs h-80 md:h-96 shadow-lg rounded-lg overflow-hidden">
-                <Image
-                  fill
-                  priority
-                  alt={`${book.title} cover`}
-                  src={book.coverImage || "/images/placeholder-book.png"}
-                  style={{ objectFit: "cover" }}
-                />
-              </div>
+    <div className="container mx-auto py-8">
+      <Link
+        className="flex items-center text-booktrack-gold mb-6 hover:underline"
+        to="/"
+      >
+        <ArrowLeft className="h-4 w-4 mr-1" />
+        Back to Search
+      </Link>
 
-              <div className="flex justify-center space-x-4 w-full">
-                <Tooltip
-                  content={bookmarked ? "Remove bookmark" : "Add bookmark"}
-                >
-                  <Button
-                    isIconOnly
-                    aria-label="Bookmark book"
-                    color="primary"
-                    variant={bookmarked ? "solid" : "bordered"}
-                    onClick={handleBookmark}
-                  >
-                    <BookmarkIcon filled={bookmarked} />
-                  </Button>
-                </Tooltip>
-                <Tooltip
-                  content={
-                    favorited ? "Remove from favorites" : "Add to favorites"
-                  }
-                >
-                  <Button
-                    isIconOnly
-                    aria-label="Add to favorites"
-                    color="danger"
-                    variant={favorited ? "solid" : "bordered"}
-                    onClick={handleAddToFavorites}
-                  >
-                    <HeartIcon filled={favorited} />
-                  </Button>
-                </Tooltip>
-                <Tooltip content="Share this book">
-                  <Button
-                    isIconOnly
-                    aria-label="Share book"
-                    variant="bordered"
-                    onClick={handleShare}
-                  >
-                    <ShareIcon />
-                  </Button>
-                </Tooltip>
-              </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        {/* Left Column - Book Cover */}
+        <div className="lg:col-span-1">
+          <div className="aspect-[2/3] overflow-hidden rounded-lg">
+            <img
+              alt={`${book.title} cover`}
+              className="w-full h-full object-cover"
+              src={book.coverImage}
+            />
+          </div>
 
-              {/* External links */}
-              <BookExternalLinks
-                author={book.author}
-                bookId={book.id}
-                title={book.title}
-              />
+          <div className="mt-4 grid grid-cols-3 gap-2">
+            <Button
+              className={`flex flex-col items-center justify-center p-2 h-auto ${isBookmarked ? "bg-booktrack-gold text-booktrack-dark" : "bg-booktrack-darkgray"}`}
+              onClick={handleBookmark}
+            >
+              <BookMarked className="h-5 w-5 mb-1" />
+              <span className="text-xs">Bookmark</span>
+            </Button>
+
+            <Button
+              className={`flex flex-col items-center justify-center p-2 h-auto ${isFavorite ? "bg-booktrack-gold text-booktrack-dark" : "bg-booktrack-darkgray"}`}
+              onClick={handleFavorite}
+            >
+              <Star className="h-5 w-5 mb-1" />
+              <span className="text-xs">Favorite</span>
+            </Button>
+
+            <Button
+              className={`flex flex-col items-center justify-center p-2 h-auto ${isSavedForLater ? "bg-booktrack-gold text-booktrack-dark" : "bg-booktrack-darkgray"}`}
+              onClick={handleSaveForLater}
+            >
+              <Clock className="h-5 w-5 mb-1" />
+              <span className="text-xs">Save</span>
+            </Button>
+          </div>
+
+          <Button
+            className="w-full mt-2 bg-booktrack-darkgray hover:bg-booktrack-lightgray"
+            onClick={handleShare}
+          >
+            <Share className="h-5 w-5 mr-2" />
+            Share
+          </Button>
+        </div>
+
+        {/* Right Column - Book Details */}
+        <div className="lg:col-span-2">
+          <h1 className="text-3xl font-bold text-white mb-2">{book.title}</h1>
+          <p className="text-xl text-gray-300 mb-4">by {book.author}</p>
+
+          <div className="flex items-center mb-4">
+            <div className="flex text-booktrack-gold mr-2">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <span key={i}>{i < Math.floor(book.rating) ? "★" : "☆"}</span>
+              ))}
             </div>
+            <span className="text-gray-400">
+              {book.rating} ({book.reviewCount} reviews)
+            </span>
+          </div>
 
-            {/* Right column - Book details */}
-            <div className="md:col-span-2 space-y-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
-                <h1 className="text-2xl md:text-3xl font-bold">{book.title}</h1>
-                {book.series && (
-                  <Badge
-                    className="ml-0 md:ml-2 mt-2 md:mt-0"
-                    color="secondary"
-                    variant="flat"
-                  >
-                    {book.series.name} #{book.series.volume}
-                  </Badge>
-                )}
-              </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {book.genre.map((genre) => (
+              <span
+                key={genre}
+                className="text-sm px-3 py-1 rounded-full bg-booktrack-lightgray text-white"
+              >
+                {genre}
+              </span>
+            ))}
+          </div>
 
-              <h2 className="text-xl text-gray-600 dark:text-gray-400">
-                by {book.author}
-              </h2>
+          {book.series && (
+            <div className="mb-4 p-3 bg-booktrack-darkgray rounded-lg">
+              <p className="text-gray-300">
+                <span className="text-booktrack-gold">Series:</span>{" "}
+                {book.series.name} (Book {book.series.position})
+              </p>
+            </div>
+          )}
 
-              <div className="flex flex-wrap items-center gap-2">
-                <Rating readOnly value={book.rating} />
-                <span className="text-small text-default-500">
-                  {book.rating.toFixed(1)} ({book.reviewCount} reviews)
-                </span>
-                {book.ranking && (
-                  <Chip color="warning" variant="flat">
-                    #{book.ranking} Bestseller
-                  </Chip>
-                )}
-              </div>
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-white mb-2">
+              About this book
+            </h2>
+            <p className="text-gray-300 leading-relaxed">{book.description}</p>
+          </div>
 
-              <div className="flex flex-wrap gap-2 my-4">
-                {book.genres.map((genre) => (
-                  <Chip key={genre} color="primary" variant="flat">
-                    {genre}
-                  </Chip>
-                ))}
-              </div>
-
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
-                <div>
-                  <p className="font-semibold">Publication Date</p>
-                  <p>{new Date(book.publicationDate).toLocaleDateString()}</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Publisher</p>
-                  <p>{book.publisher}</p>
-                </div>
-                <div>
-                  <p className="font-semibold">Pages</p>
-                  <p>{book.pageCount}</p>
-                </div>
-              </div>
-
-              <Divider className="my-4" />
-
-              <div>
-                <h3 className="text-xl font-semibold mb-2">Synopsis</h3>
-                <p className="text-default-600 whitespace-pre-line">
-                  {book.synopsis}
-                </p>
-              </div>
-
-              {/* Add reading progress for logged-in users */}
-              {isAuthenticated && (
-                <div className="mt-4">
-                  <h3 className="text-lg font-semibold mb-2">
-                    Your Reading Progress
-                  </h3>
-                  <div className="flex items-center gap-2">
-                    <progress
-                      className="w-full h-2 [&::-webkit-progress-bar]:rounded-lg [&::-webkit-progress-value]:rounded-lg [&::-webkit-progress-bar]:bg-default-200 [&::-webkit-progress-value]:bg-primary"
-                      max={100}
-                      value={30}
-                    />
-                    <span className="text-small">30%</span>
-                  </div>
-                  <Button
-                    className="mt-2"
-                    color="primary"
-                    size="sm"
-                    variant="flat"
-                  >
-                    Update Progress
-                  </Button>
-                </div>
-              )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-booktrack-darkgray p-3 rounded-lg">
+              <p className="text-sm text-gray-400">Pages</p>
+              <p className="text-xl text-white">{book.pages}</p>
+            </div>
+            <div className="bg-booktrack-darkgray p-3 rounded-lg">
+              <p className="text-sm text-gray-400">Published</p>
+              <p className="text-xl text-white">
+                {book.publishedDate
+                  ? new Date(book.publishedDate).getFullYear()
+                  : "Unknown"}
+              </p>
+            </div>
+            <div className="bg-booktrack-darkgray p-3 rounded-lg">
+              <p className="text-sm text-gray-400">Rating</p>
+              <p className="text-xl text-white">{book.rating} / 5</p>
+            </div>
+            <div className="bg-booktrack-darkgray p-3 rounded-lg">
+              <p className="text-sm text-gray-400">Reviews</p>
+              <p className="text-xl text-white">{book.reviewCount}</p>
             </div>
           </div>
-        </CardBody>
-      </Card>
 
-      {/* Reviews section */}
-      <ReviewSection bookId={book.id} />
+          {book.tags && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white mb-2">Tags</h3>
+              <div className="flex flex-wrap gap-2">
+                {book.tags.map((tag) => (
+                  <span
+                    key={tag}
+                    className="text-xs px-2 py-1 rounded-full bg-booktrack-darkgray text-gray-300"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-      {/* Similar books section */}
-      <div className="mt-12">
-        <h2 className="text-2xl font-bold mb-4">
-          Similar Books You Might Enjoy
-        </h2>
-        <SimilarBooks bookId={book.id} genres={book.genres} />
+          {book.readLinks && (
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-white mb-2">
+                Where to read
+              </h3>
+              <div className="flex flex-wrap gap-2">
+                {book.readLinks.map((link) => (
+                  <a
+                    key={link.name}
+                    className="px-4 py-2 bg-booktrack-darkgray rounded-lg text-white hover:bg-booktrack-lightgray transition-colors"
+                    href={link.url}
+                    rel="noopener noreferrer"
+                    target="_blank"
+                  >
+                    {link.name}
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {similarBooks.length > 0 && (
+            <div>
+              <h3 className="text-xl font-semibold text-white mb-3">
+                Similar books you might enjoy
+              </h3>
+              <div className="grid grid-cols-3 gap-3">
+                {similarBooks.map((book) => renderBookCard(book))}
+              </div>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

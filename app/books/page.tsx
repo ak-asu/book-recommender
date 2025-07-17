@@ -1,190 +1,165 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Card, CardHeader, CardBody, Tabs, Tab, Spinner } from "@heroui/react";
+import { useState } from "react";
+import { Link } from "react-router-dom";
+import { useSelector } from "react-redux";
+import { ArrowLeft, BookMarked, Star, Clock } from "lucide-react";
 
-import Container from "@/components/ui/Container";
-import BookList from "@/components/book/BookList";
+import { RootState } from "@/store";
 import { useAuth } from "@/hooks/useAuth";
-import { bookmarkService } from "@/services/bookmarkService";
+import Navbar from "@/components/ui/Navbar";
+import BookCard from "@/components/book/BookCard";
+import { Button } from "@heroui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@heroui/tabs";
 
-interface Book {
-  id: string;
-  image: string;
-  title: string;
-  author: string;
-  publicationDate?: string;
-  rating: number;
-  reviewCount?: number;
-  description: string;
-  genres?: string[];
-}
+const SavedPage = () => {
+  const { isAuthenticated } = useAuth();
+  const { favorites, bookmarked, savedForLater } = useSelector(
+    (state: RootState) => state.bookmark,
+  );
+  const [activeTab, setActiveTab] = useState("bookmarked");
 
-export default function BooksPage() {
-  const [activeTab, setActiveTab] = useState("favorites");
-  const [favorites, setFavorites] = useState<Book[]>([]);
-  const [bookmarks, setBookmarks] = useState<Book[]>([]);
-  const [savedForLater, setSavedForLater] = useState<Book[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const { user, isAuthenticated } = useAuth();
-
-  useEffect(() => {
-    const loadUserData = async () => {
-      if (!isAuthenticated || !user) {
-        setLoading(false);
-        return;
-      }
-      try {
-        setLoading(true);
-        setError(null);
-        const loadData = async () => {
-          // switch (activeTab) {
-          //   case "favorites":
-          //     const favoritesData = await getUserFavorites(user.uid);
-          //     setFavorites(favoritesData);
-          //     break;
-          //   case "bookmarks":
-          //     const bookmarksData = await getUserBookmarks(user.uid);
-          //     setBookmarks(bookmarksData);
-          //     break;
-          //   case "saved":
-          //     const savedData = await getSavedForLater(user.uid);
-          //     setSavedForLater(savedData);
-          //     break;
-          // }
-        };
-        await loadData();
-      } catch {
-        setError(`Failed to load your ${activeTab}. Please try again.`);
-      } finally {
-        setLoading(false);
-      }
-    };
-    loadUserData();
-  }, [user, isAuthenticated, activeTab]);
-
-  const handleRemoveItem = async (bookId: string) => {
-    if (!user) return;
-
-    let currentList: Book[] = [];
-    let setterFunction: React.Dispatch<React.SetStateAction<Book[]>>;
-    let collectionType: "favorites" | "bookmarks" | "savedForLater";
-
-    switch (activeTab) {
-      case "favorites":
-        currentList = favorites;
-        setterFunction = setFavorites;
-        collectionType = "favorites";
-        break;
-      case "bookmarks":
-        currentList = bookmarks;
-        setterFunction = setBookmarks;
-        collectionType = "bookmarks";
-        break;
-      case "saved":
-        currentList = savedForLater;
-        setterFunction = setSavedForLater;
-        collectionType = "savedForLater";
-        break;
-      default:
-        return;
-    }
-
-    try {
-      switch (collectionType) {
-        case "favorites":
-          await bookmarkService.removeFavorite(bookId);
-          break;
-        case "bookmarks":
-          await bookmarkService.removeBookmark(bookId);
-          break;
-        case "savedForLater":
-          await bookmarkService.removeSavedForLater(bookId);
-          break;
-      }
-      setterFunction(currentList.filter((book) => book.id !== bookId));
-    } catch {
-      setError(`Failed to remove book from ${activeTab}. Please try again.`);
-    }
-  };
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen flex flex-col bg-booktrack-dark">
+        <Navbar />
+        <div className="container mx-auto py-16 px-4 text-center">
+          <h2 className="text-2xl font-bold mb-4 text-white">
+            Please login to view your saved books
+          </h2>
+          <Link to="/">
+            <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
+              Go to Home
+            </Button>
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <Container className="py-8">
-      <h1 className="text-3xl font-bold mb-6">My Books</h1>
-      {!isAuthenticated ? (
-        <div className="text-center py-8 text-default-500">
-          Please log in to view your book collection.
-        </div>
-      ) : (
-        <Card>
-          <CardHeader>
-            <Tabs
-              aria-label="Book collection tabs"
-              selectedKey={activeTab}
-              onSelectionChange={setActiveTab as any}
+    <div className="min-h-screen flex flex-col bg-booktrack-dark">
+      <Navbar />
+
+      <div className="container mx-auto py-8 px-4">
+        <Link
+          className="flex items-center text-booktrack-gold mb-6 hover:underline"
+          to="/"
+        >
+          <ArrowLeft className="h-4 w-4 mr-1" />
+          Back to Home
+        </Link>
+
+        <h1 className="text-3xl font-bold text-white mb-6">Your Saved Books</h1>
+
+        <Tabs
+          className="mb-6"
+          defaultValue="bookmarked"
+          value={activeTab}
+          onValueChange={setActiveTab}
+        >
+          <TabsList className="bg-booktrack-darkgray">
+            <TabsTrigger
+              className="data-[state=active]:bg-booktrack-gold data-[state=active]:text-booktrack-dark"
+              value="bookmarked"
             >
-              <Tab key="favorites" title="Favorites" />
-              <Tab key="bookmarks" title="Bookmarks" />
-              <Tab key="saved" title="Saved for Later" />
-            </Tabs>
-          </CardHeader>
-          <CardBody>
-            {loading ? (
-              <div className="flex justify-center py-12">
-                <Spinner label={`Loading your ${activeTab}...`} size="lg" />
+              <BookMarked className="h-4 w-4 mr-2" />
+              Bookmarked ({bookmarked.length})
+            </TabsTrigger>
+            <TabsTrigger
+              className="data-[state=active]:bg-booktrack-gold data-[state=active]:text-booktrack-dark"
+              value="favorites"
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Favorites ({favorites.length})
+            </TabsTrigger>
+            <TabsTrigger
+              className="data-[state=active]:bg-booktrack-gold data-[state=active]:text-booktrack-dark"
+              value="savedForLater"
+            >
+              <Clock className="h-4 w-4 mr-2" />
+              Saved for Later ({savedForLater.length})
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="bookmarked">
+            {bookmarked.length === 0 ? (
+              <div className="bg-booktrack-darkgray rounded-lg p-8 text-center">
+                <BookMarked className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+                <h3 className="text-xl font-medium text-white mb-2">
+                  No bookmarked books yet
+                </h3>
+                <p className="text-gray-400 mb-4">
+                  Books you bookmark will appear here
+                </p>
+                <Link to="/">
+                  <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
+                    Discover Books
+                  </Button>
+                </Link>
               </div>
-            ) : error ? (
-              <div className="text-center py-8 text-danger">{error}</div>
             ) : (
-              <div>
-                {activeTab === "favorites" && (
-                  <div>
-                    {favorites.length === 0 ? (
-                      <div className="text-center py-8 text-default-500">
-                        You haven&apos;t added any books to your favorites yet.
-                      </div>
-                    ) : (
-                      <BookList
-                        books={favorites}
-                        onBookmark={handleRemoveItem}
-                      />
-                    )}
-                  </div>
-                )}
-                {activeTab === "bookmarks" && (
-                  <div>
-                    {bookmarks.length === 0 ? (
-                      <div className="text-center py-8 text-default-500">
-                        You haven&apos;t bookmarked any books yet.
-                      </div>
-                    ) : (
-                      <BookList
-                        books={bookmarks}
-                        onBookmark={handleRemoveItem}
-                      />
-                    )}
-                  </div>
-                )}
-                {activeTab === "saved" && (
-                  <div>
-                    {savedForLater.length === 0 ? (
-                      <div className="text-center py-8 text-default-500">
-                        You haven&apos;t saved any books for later yet.
-                      </div>
-                    ) : (
-                      <BookList
-                        books={savedForLater}
-                        onBookmark={handleRemoveItem}
-                      />
-                    )}
-                  </div>
-                )}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {bookmarked.map((book) => (
+                  <BookCard key={book.id} book={book} />
+                ))}
               </div>
             )}
-          </CardBody>
-        </Card>
-      )}
-    </Container>
+          </TabsContent>
+
+          <TabsContent value="favorites">
+            {favorites.length === 0 ? (
+              <div className="bg-booktrack-darkgray rounded-lg p-8 text-center">
+                <Star className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+                <h3 className="text-xl font-medium text-white mb-2">
+                  No favorite books yet
+                </h3>
+                <p className="text-gray-400 mb-4">
+                  Books you mark as favorite will appear here
+                </p>
+                <Link to="/">
+                  <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
+                    Discover Books
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {favorites.map((book) => (
+                  <BookCard key={book.id} book={book} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="savedForLater">
+            {savedForLater.length === 0 ? (
+              <div className="bg-booktrack-darkgray rounded-lg p-8 text-center">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-gray-500" />
+                <h3 className="text-xl font-medium text-white mb-2">
+                  No books saved for later
+                </h3>
+                <p className="text-gray-400 mb-4">
+                  Books you save for later will appear here
+                </p>
+                <Link to="/">
+                  <Button className="bg-booktrack-gold text-booktrack-dark hover:bg-booktrack-gold/80">
+                    Discover Books
+                  </Button>
+                </Link>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {savedForLater.map((book) => (
+                  <BookCard key={book.id} book={book} />
+                ))}
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </div>
   );
-}
+};
+
+export default SavedPage;

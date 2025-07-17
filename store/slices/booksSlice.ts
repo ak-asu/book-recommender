@@ -1,6 +1,7 @@
 import { createSlice, createAsyncThunk, PayloadAction } from "@reduxjs/toolkit";
 
 import { SearchFilters, SearchState } from "@/types";
+import { mockBooks } from "@/constants/mockData";
 
 // In a real app, this would be an API call
 export const searchBooks = createAsyncThunk(
@@ -14,7 +15,7 @@ export const searchBooks = createAsyncThunk(
       await new Promise((resolve) => setTimeout(resolve, 1000));
 
       // Filter mock books based on query and filters
-      let filteredBooks: any[] = [];
+      let filteredBooks = [...mockBooks];
 
       if (query) {
         filteredBooks = filteredBooks.filter(
@@ -28,7 +29,7 @@ export const searchBooks = createAsyncThunk(
       if (filters?.genre) {
         filteredBooks = filteredBooks.filter((book) =>
           book.genre.some(
-            (g: any) => g.toLowerCase() === filters.genre?.toLowerCase(),
+            (g) => g.toLowerCase() === filters.genre?.toLowerCase(),
           ),
         );
       }
@@ -82,7 +83,7 @@ export const fetchBookById = createAsyncThunk(
       // Simulate API call
       await new Promise((resolve) => setTimeout(resolve, 500));
 
-      const book = [].find((book: any) => book.id === id);
+      const book = mockBooks.find((book) => book.id === id);
 
       if (!book) {
         return rejectWithValue("Book not found");

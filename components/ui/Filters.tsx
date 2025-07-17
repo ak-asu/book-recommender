@@ -1,43 +1,32 @@
-import React from "react";
-import { Button } from "@heroui/react";
-import { useSelector } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { Filter } from "lucide-react";
 
 import { RootState } from "@/store";
 import { setFilters, searchBooks } from "@/store/slices/booksSlice";
 import { SearchFilters } from "@/types";
-import { useAppDispatch } from "@/hooks/useAppDispatch";
-import { BOOK } from "@/lib/constants";
+import { genres } from "@/constants/mockData";
+import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
-const Filters: React.FC = () => {
-  const dispatch = useAppDispatch();
+const Filters = () => {
+  const dispatch = useDispatch();
   const { filters, query } = useSelector((state: RootState) => state.books);
-
-  // Define options for selects
-  const genres = ["All Genres", ...BOOK.GENRES];
-  const sortOptions = [
-    { value: "popularity", label: "Popularity" },
-    { value: "rating", label: "Rating" },
-    { value: "newest", label: "Newest" },
-    { value: "oldest", label: "Oldest" },
-  ];
-  const ratingOptions = [
-    { value: "any", label: "Any Rating" },
-    { value: "4", label: "4+ Stars" },
-    { value: "3", label: "3+ Stars" },
-    { value: "2", label: "2+ Stars" },
-  ];
 
   const handleFilterChange = (
     key: keyof SearchFilters,
-    value?: string | number,
+    value: string | number,
   ) => {
-    const newFilters: SearchFilters = { ...filters };
-    if (value === undefined || (key === "genre" && value === "All Genres")) {
-      delete newFilters[key];
-    } else {
-      newFilters[key] = value as any;
-    }
+    const newFilters = {
+      ...filters,
+      [key]: key === "genre" && value === "All Genres" ? undefined : value,
+    };
+
     dispatch(setFilters(newFilters));
     dispatch(searchBooks({ query, filters: newFilters }));
   };
@@ -56,53 +45,104 @@ const Filters: React.FC = () => {
         </div>
 
         <div className="flex items-center gap-4 flex-wrap">
-          <select
-            className="w-[180px] bg-booktrack-darkgray border border-booktrack-lightgray text-white p-1 rounded"
+          <Select
             value={filters.genre || "All Genres"}
-            onChange={(e) => handleFilterChange("genre", e.target.value)}
+            onValueChange={(value) => handleFilterChange("genre", value)}
           >
-            {genres.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[180px] bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              <SelectValue placeholder="Genre" />
+            </SelectTrigger>
+            <SelectContent className="bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              {genres.map((genre) => (
+                <SelectItem
+                  key={genre}
+                  className="focus:bg-booktrack-lightgray focus:text-white"
+                  value={genre}
+                >
+                  {genre}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
 
-          <select
-            className="w-[180px] bg-booktrack-darkgray border border-booktrack-lightgray text-white p-1 rounded"
+          <Select
             value={filters.sortBy || "popularity"}
-            onChange={(e) => handleFilterChange("sortBy", e.target.value)}
+            onValueChange={(value) => handleFilterChange("sortBy", value)}
           >
-            {sortOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[180px] bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              <SelectValue placeholder="Sort by" />
+            </SelectTrigger>
+            <SelectContent className="bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="popularity"
+              >
+                Popularity
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="rating"
+              >
+                Rating
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="newest"
+              >
+                Newest
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="oldest"
+              >
+                Oldest
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
-          <select
-            className="w-[180px] bg-booktrack-darkgray border border-booktrack-lightgray text-white p-1 rounded"
-            value={
-              filters.rating !== undefined ? String(filters.rating) : "any"
-            }
-            onChange={(e) => {
-              const val = e.target.value;
+          <Select
+            value={String(filters.rating || "any")}
+            onValueChange={(value) =>
               handleFilterChange(
                 "rating",
-                val === "any" ? undefined : Number(val),
-              );
-            }}
+                value === "any" ? undefined : Number(value),
+              )
+            }
           >
-            {ratingOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[180px] bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              <SelectValue placeholder="Rating" />
+            </SelectTrigger>
+            <SelectContent className="bg-booktrack-darkgray border-booktrack-lightgray text-white">
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="any"
+              >
+                Any Rating
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="4"
+              >
+                4+ Stars
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="3"
+              >
+                3+ Stars
+              </SelectItem>
+              <SelectItem
+                className="focus:bg-booktrack-lightgray focus:text-white"
+                value="2"
+              >
+                2+ Stars
+              </SelectItem>
+            </SelectContent>
+          </Select>
 
           <Button
             className="border-booktrack-lightgray text-white hover:bg-booktrack-lightgray"
-            variant="bordered"
+            variant="outline"
             onClick={handleReset}
           >
             Reset

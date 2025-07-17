@@ -1,4 +1,5 @@
 When generating code (follow these points and their priority is in the give order):
+
 - Use best practices and industry standards
 - Give efficient, optimized and highly performant code whenever possible
 - Write modular and reusable code
