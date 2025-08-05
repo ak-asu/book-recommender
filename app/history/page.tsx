@@ -11,7 +11,7 @@ import {
 } from "@/store/slices/booksSlice";
 import { useAuth } from "@/hooks/useAuth";
 import Navbar from "@/components/Navbar";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import HistoryActions from "@/components/HistoryActions";
 
 const HistoryPage = () => {

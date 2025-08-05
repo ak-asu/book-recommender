@@ -9,6 +9,13 @@ const config = {
   ],
   theme: {
     extend: {
+       colors: {
+        'booktrack-dark': 'hsl(var(--background))',
+        'booktrack-card': 'hsl(var(--card))',
+        'booktrack-gold': 'hsl(var(--accent))',
+        'booktrack-darkgray': '#18181b',
+        'booktrack-lightgray': '#d4d4d8',
+      },
       fontFamily: {
         sans: ["var(--font-sans)"],
         mono: ["var(--font-mono)"],

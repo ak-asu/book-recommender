@@ -4,10 +4,10 @@ import { toast } from "sonner";
 import { ArrowLeft, User, BookMarked, History, LogOut } from "lucide-react";
 
 import { useAuth } from "@/hooks/useAuth";
-import Navbar from "@/components/Navbar";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import Navbar from "@/components/ui/Navbar";
+import { Button } from "@heroui/button";
+import { Input } from "@heroui/input";
+import { Label } from "@heroui/label";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 

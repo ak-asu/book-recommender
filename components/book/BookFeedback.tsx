@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ThumbsUp, ThumbsDown, RefreshCw } from "lucide-react";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import { FeedbackType } from "@/services/feedbackService";
 
 interface BookFeedbackProps {

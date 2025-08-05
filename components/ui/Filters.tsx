@@ -5,14 +5,14 @@ import { RootState } from "@/store";
 import { setFilters, searchBooks } from "@/store/slices/booksSlice";
 import { SearchFilters } from "@/types";
 import { genres } from "@/constants/mockData";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from "@heroui/select";
 
 const Filters = () => {
   const dispatch = useDispatch();

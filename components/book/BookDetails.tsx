@@ -11,7 +11,7 @@ import {
   toggleFavorite,
   toggleSaveForLater,
 } from "@/store/slices/bookmarkSlice";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { mockBooks } from "@/constants/mockData";
 import { Book } from "@/types";

@@ -10,7 +10,7 @@ import {
   addToHistory,
   setFilters,
 } from "@/store/slices/booksSlice";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Popover,

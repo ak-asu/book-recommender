@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { useDispatch } from "react-redux";
 
 import { useAuth } from "@/hooks/useAuth";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,8 +24,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Input } from "@heroui/input";
+import { Label } from "@heroui/label";
 import { setQuery, setFilters } from "@/store/slices/booksSlice";
 import { searchBooks } from "@/store/slices/booksSlice";
 

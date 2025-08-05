@@ -8,7 +8,7 @@ import BookFeedback from "./BookFeedback";
 import { Book } from "@/types";
 import { RootState } from "@/store";
 import { toggleBookmark, toggleFavorite } from "@/store/slices/bookmarkSlice";
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { FeedbackType } from "@/services/feedbackService";
 
@@ -68,7 +68,7 @@ const BookCard = ({ book, onFeedback, showFeedback = true }: BookCardProps) => {
         <div className="absolute top-2 right-2 flex flex-col gap-2">
           <Button
             className={`rounded-full bg-booktrack-darkgray/80 hover:bg-booktrack-darkgray ${isBookmarked ? "text-booktrack-gold" : "text-white"}`}
-            size="icon"
+            size="md"
             variant="ghost"
             onClick={handleBookmark}
           >
@@ -76,7 +76,7 @@ const BookCard = ({ book, onFeedback, showFeedback = true }: BookCardProps) => {
           </Button>
           <Button
             className={`rounded-full bg-booktrack-darkgray/80 hover:bg-booktrack-darkgray ${isFavorite ? "text-booktrack-gold" : "text-white"}`}
-            size="icon"
+            size="md"
             variant="ghost"
             onClick={handleFavorite}
           >
@@ -131,7 +131,7 @@ const BookCard = ({ book, onFeedback, showFeedback = true }: BookCardProps) => {
           <Link to={`/book/${book.id}`}>
             <Button
               className="w-full border-booktrack-gold text-booktrack-gold hover:bg-booktrack-gold hover:text-booktrack-dark"
-              variant="outline"
+              variant="bordered"
             >
               View Details
             </Button>

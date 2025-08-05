@@ -3,7 +3,7 @@ import { Share, Download, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { useDispatch, useSelector } from "react-redux";
 
-import { Button } from "@/components/ui/button";
+import { Button } from "@heroui/button";
 import {
   Popover,
   PopoverContent,
