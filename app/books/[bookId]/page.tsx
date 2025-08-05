@@ -1,35 +1,24 @@
-"use client";
+import Navbar from "@/components/Navbar";
+import BookDetails from "@/components/BookDetails";
 
-import { useRouter, useParams } from "next/navigation";
-import { Button } from "@heroui/react";
-
-import BookDetails from "@/components/book/BookDetails";
-import { BackIcon } from "@/components/icons";
-import Container from "@/components/ui/Container";
-
-const BookDetailPage = () => {
-  const router = useRouter();
-  const params = useParams();
-  const bookId = params.bookId;
-
-  const handleGoBack = () => {
-    router.back();
-  };
-
+const BookPage = () => {
   return (
-    <Container className="py-6 px-4">
-      <div className="mb-6">
-        <Button
-          startContent={<BackIcon />}
-          variant="light"
-          onPress={handleGoBack}
-        >
-          Back
-        </Button>
+    <div className="min-h-screen flex flex-col bg-booktrack-dark">
+      <Navbar />
+
+      <div className="flex-grow">
+        <BookDetails />
       </div>
-      {bookId && <BookDetails bookId={bookId as string} />}
-    </Container>
+
+      <footer className="bg-booktrack-darkgray py-6 border-t border-booktrack-lightgray">
+        <div className="container mx-auto px-4 text-center text-gray-400">
+          <p>
+            &copy; {new Date().getFullYear()} BookTrack. All rights reserved.
+          </p>
+        </div>
+      </footer>
+    </div>
   );
 };
 
-export default BookDetailPage;
+export default BookPage;
