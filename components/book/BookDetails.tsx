@@ -16,8 +16,13 @@ import { useAuth } from "@/hooks/useAuth";
 import { mockBooks } from "@/constants/mockData";
 import { Book } from "@/types";
 
-const BookDetails = () => {
-  const { id } = useParams<{ id: string }>();
+interface BookDetailsProps {
+  bookId?: string;
+}
+
+const BookDetails = ({ bookId: propBookId }: BookDetailsProps = {}) => {
+  const params = useParams<{ id: string }>();
+  const id = propBookId || params.id;
   const dispatch = useDispatch();
   const { isAuthenticated } = useAuth();
   const bookmarks = useSelector(

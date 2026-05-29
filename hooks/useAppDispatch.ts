@@ -1,4 +1,4 @@
-import type { AppDispatch } from "@/store/store";
+import type { AppDispatch } from "@/store";
 
 import { useDispatch } from "react-redux";
 

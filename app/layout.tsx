@@ -5,7 +5,6 @@ import { Providers } from "./providers";
 
 import { siteConfig } from "@/lib/site";
 import { fontSans } from "@/lib/fonts";
-import Navbar from "@/components/ui/Navbar";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -42,8 +41,7 @@ export default function RootLayout({
       >
         <Providers themeProps={{ attribute: "class", defaultTheme: "dark" }}>
           <div className="relative flex flex-col h-screen">
-            <Navbar />
-            <main className="container mx-auto max-w-7xl pt-16 px-6 flex-grow">
+            <main className="flex-grow">
               {children}
             </main>
           </div>
